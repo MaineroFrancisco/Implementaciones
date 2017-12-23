@@ -1,0 +1,364 @@
+clear;
+res_x = 640;
+res_y = 480;
+
+cam_1 = textread('D:\Facultad\Proyecto\SL_Tests\Calibration\Test_Zhang\cam_1.txt','%d',16);
+% cam_1(2:2:8) = -1*cam_1(2:2:8) + res_y; 
+cam_1 = [
+    cam_1(1), cam_1(2), 1;
+    cam_1(3), cam_1(4), 1;
+    cam_1(5), cam_1(6), 1;
+    cam_1(7), cam_1(8), 1;
+    cam_1(9), cam_1(10), 1;
+    cam_1(11), cam_1(12), 1;
+    cam_1(13), cam_1(14), 1;
+    cam_1(15), cam_1(16), 1;
+    ];
+
+cam_2 = textread('D:\Facultad\Proyecto\SL_Tests\Calibration\Test_Zhang\cam_2.txt','%d',16);
+% cam_2(2:2:8) = -1*cam_2(2:2:8) + res_y;
+cam_2 = [
+    cam_2(1), cam_2(2), 1;
+    cam_2(3), cam_2(4), 1;
+    cam_2(5), cam_2(6), 1;
+    cam_2(7), cam_2(8), 1;
+    cam_2(9), cam_2(10), 1;
+    cam_2(11), cam_2(12), 1;
+    cam_2(13), cam_2(14), 1;
+    cam_2(15), cam_2(16), 1;
+    ];
+
+cam_3 = textread('D:\Facultad\Proyecto\SL_Tests\Calibration\Test_Zhang\cam_3.txt','%d',16);
+% cam_3(2:2:8) = -1*cam_3(2:2:8) + res_y;
+cam_3 = [
+    cam_3(1), cam_3(2), 1;
+    cam_3(3), cam_3(4), 1;
+    cam_3(5), cam_3(6), 1;
+    cam_3(7), cam_3(8), 1;
+    cam_3(9), cam_3(10), 1;
+    cam_3(11), cam_3(12), 1;
+    cam_3(13), cam_3(14), 1;
+    cam_3(15), cam_3(16), 1;
+    ];
+
+p_reales = [
+    0, 0, 0, 1;
+    0, 1, 0, 1;
+    0, 2, 0, 1;
+    0.5, 0.5, 0, 1;
+    0.5, 1.5, 0, 1;
+    1, 0, 0, 1;
+    1, 1, 0, 1;
+    1, 2, 0, 1;
+];
+
+%%Closed Form Solution
+% z = 0
+
+% Homography Camera 1
+for k = 1:size(p_reales,1)
+    x1 = p_reales(k,1);
+    y1 = p_reales(k,2);
+
+    x2 = cam_1(k,1);
+    y2 = cam_1(k,2);
+
+
+    A(2*k-1,:) = [
+     -x1 -y1 -1 0 0 0 (x2*x1) (x2*y1) x2;
+    ];
+    A(2*k,:)=[
+     0 0 0 -x1 -y1 -1 (y2*x1) (y2*y1) y2;
+    ];
+end
+
+[U,S,V] = svd(A);
+
+v = V(:,9)';
+
+H1 = [
+    v(1:3);
+    v(4:6);
+    v(7:9)
+];
+
+%% Levenberg Marquat Refinement
+
+
+
+% Homography Camera 2
+
+for k = 1:size(p_reales,1)
+    x1 = p_reales(k,1);
+    y1 = p_reales(k,2);
+
+    x2 = cam_2(k,1);
+    y2 = cam_2(k,2);
+
+
+    A(2*k-1,:) = [
+     -x1 -y1 -1 0 0 0 (x2*x1) (x2*y1) x2;
+    ];
+    A(2*k,:)=[
+     0 0 0 -x1 -y1 -1 (y2*x1) (y2*y1) y2;
+    ];
+end
+
+[U,S,V] = svd(A);
+
+v = V(:,9)';
+
+H2 = [
+    v(1:3);
+    v(4:6);
+    v(7:9)
+];
+
+
+% Homography Camera 3
+
+for k = 1:size(p_reales,1)
+    x1 = p_reales(k,1);
+    y1 = p_reales(k,2);
+
+    x2 = cam_3(k,1);
+    y2 = cam_3(k,2);
+
+
+    A(2*k-1,:) = [
+     -x1 -y1 -1 0 0 0 (x2*x1) (x2*y1) x2;
+    ];
+    A(2*k,:)=[
+     0 0 0 -x1 -y1 -1 (y2*x1) (y2*y1) y2;
+    ];
+end
+
+[U,S,V] = svd(A);
+
+v = V(:,9)';
+
+H3 = [
+    v(1:3);
+    v(4:6);
+    v(7:9)
+];
+%% Intrinsic Parameters Deduction
+
+% Camera 1
+h1 = H1(:,1);
+h2 = H1(:,2);
+h3 = H1(:,3);
+
+v12_c1 = [
+    h1(1)*h1(2),
+    h1(1)*h2(2) + h1(2)*h2(1),
+    h1(2)*h2(2),
+    h3(1)*h1(2) + h1(1)*h3(2),
+    h3(1)*h2(2) + h2(1)*h3(2),
+    h3(1)*h3(2)
+    ]';
+
+v11_c1 = [
+    h1(1)*h1(1),
+    h1(1)*h2(1) + h1(1)*h2(1),
+    h1(1)*h2(1),
+    h3(1)*h1(1) + h1(1)*h3(1),
+    h3(1)*h2(1) + h2(1)*h3(1),
+    h3(1)*h3(1)
+    ]';
+
+v22_c1 = [
+    h1(2)*h1(2),
+    h1(2)*h2(2) + h1(2)*h2(2),
+    h1(2)*h2(2),
+    h3(2)*h1(2) + h1(2)*h3(2),
+    h3(2)*h2(2) + h2(2)*h3(2),
+    h3(2)*h3(2)
+    ]';
+
+% Camera 2
+h1 = H2(:,1);
+h2 = H2(:,2);
+h3 = H2(:,3);
+
+v12_c2 = [
+    h1(1)*h1(2),
+    h1(1)*h2(2) + h1(2)*h2(1),
+    h1(2)*h2(2),
+    h3(1)*h1(2) + h1(1)*h3(2),
+    h3(1)*h2(2) + h2(1)*h3(2),
+    h3(1)*h3(2)
+    ]';
+
+v11_c2 = [
+    h1(1)*h1(1),
+    h1(1)*h2(1) + h1(1)*h2(1),
+    h1(1)*h2(1),
+    h3(1)*h1(1) + h1(1)*h3(1),
+    h3(1)*h2(1) + h2(1)*h3(1),
+    h3(1)*h3(1)
+    ]';
+
+v22_c2 = [
+    h1(2)*h1(2),
+    h1(2)*h2(2) + h1(2)*h2(2),
+    h1(2)*h2(2),
+    h3(2)*h1(2) + h1(2)*h3(2),
+    h3(2)*h2(2) + h2(2)*h3(2),
+    h3(2)*h3(2)
+    ]';
+% Camera 3
+
+h1 = H3(:,1);
+h2 = H3(:,2);
+h3 = H3(:,3);
+
+v12_c3 = [
+    h1(1)*h1(2),
+    h1(1)*h2(2) + h1(2)*h2(1),
+    h1(2)*h2(2),
+    h3(1)*h1(2) + h1(1)*h3(2),
+    h3(1)*h2(2) + h2(1)*h3(2),
+    h3(1)*h3(2)
+    ]';
+
+v11_c3 = [
+    h1(1)*h1(1),
+    h1(1)*h2(1) + h1(1)*h2(1),
+    h1(1)*h2(1),
+    h3(1)*h1(1) + h1(1)*h3(1),
+    h3(1)*h2(1) + h2(1)*h3(1),
+    h3(1)*h3(1)
+    ]';
+
+v22_c3 = [
+    h1(2)*h1(2),
+    h1(2)*h2(2) + h1(2)*h2(2),
+    h1(2)*h2(2),
+    h3(2)*h1(2) + h1(2)*h3(2),
+    h3(2)*h2(2) + h2(2)*h3(2),
+    h3(2)*h3(2)
+    ]';
+
+
+%%
+
+% % Todo Junto
+% V_c = [
+%     v12_c1;
+%     v11_c1 - v22_c1;
+%     v12_c2;
+%     v11_c2 - v22_c2;
+%     % Fila extra por ser solo 2 imagenes -> gamma = 0
+%     0,1,0,0,0,0
+%     ];
+% 
+% V_c = [
+%     v12_c1;
+%     v11_c1 - v22_c1;
+%     v12_c2;
+%     v11_c2 - v22_c2;
+%     v12_c3;
+%     v11_c3 - v22_c3;
+%     ];
+    
+%% Para 1 sola camara: solo resuelve focal length
+
+% Todo Junto
+V_c = [
+    v12_c1;
+    v11_c1 - v22_c1;
+    v12_c2;
+    v11_c2 - v22_c2;  
+    % Fila extra por ser solo 2 imagenes -> gamma = 0
+    0,1,0,0,0,0;
+    ];
+
+%% Resuelvo por parametros intrinsecos
+[U,S,V] = svd(V_c);
+
+v = V(:,6)';
+b = V(:,6)';
+B = [
+    v(1), v(2), v(4);
+    v(2), v(3), v(5);
+    v(4), v(5), v(6)
+];
+
+%% Res = 640 * 480
+
+%%  lee el PUTO LIBRO DE BURGUER... MEJOR EXPLICADO...
+
+w = b(1)*b(3)*b(6) - b(2)*b(2)*b(6) - b(1)*b(5)*b(5) + 2*b(2)*b(4)*b(5) - b(3)*b(4)*b(4);
+d = b(1)*b(3) - b(2)*b(2);
+
+alpha = sqrt(abs(w/(d*b(1))));
+beta = sqrt(abs((w/(d*d))*b(1)));
+% gamma = sqrt(w/(d*d*b(1)))*b(2);
+gamma = 0;
+u0 = (b(2)*b(5) - b(3)*b(4))/d;
+v0 = (b(2)*b(4) - b(1)*b(5))/d;
+
+% v0 = (B(1,2)*B(1,3) - B(1,1)*B(2,3))/(B(1,1)*B(2,2) - B(1,2)*B(1,2));
+% v0 = -240;
+% lambda = B(3,3) - (B(1,3)*B(1,3) + v0 * (B(1,2)*B(1,3) - B(1,1)*B(2,3)))/B(1,1);
+
+% gamma = 0;   %% por definicion del problema (solo 2 fotos)
+% gamma = -B(1,2)*alpha*alpha*beta/lambda;
+% u0 = (gamma*v0/alpha) - B(1,2)*alpha*alpha/lambda;
+% u0 = -320; 
+
+% Intrinsic Matrix
+
+Im = [
+  alpha, gamma, u0;
+      0,  beta, v0;
+      0,     0,  1
+];
+% 
+% Test = inv(Im')*inv(Im);
+% 
+% escala = B(1,1)/Test(1,1);
+% 
+% %Test = escala*Test
+% 
+% % Para la camara 1
+h1 = H1(:,1);
+h2 = H1(:,2);
+h3 = H1(:,3);
+
+scale = 1/norm(inv(Im)*h1);
+
+r1 = scale*inv(Im)*h1;
+r2 = scale*inv(Im)*h2;
+r3 = cross(r1,r2);
+
+t = scale*inv(Im)*h3;
+
+R = [r1,r2,r3];
+
+Em = [R t];
+% 
+% %% IGNORO PARAMETROS INTRINSECOS
+% h1 = H1(:,1);
+% h2 = H1(:,2);
+% h3 = H1(:,3);
+% 
+% In = [1 0 0; 0 1 0; 0 0 1];
+% 
+% scale = 1/norm(inv(Im)*h1);
+% r1 = scale*inv(Im)*h1;
+% 
+% % scale = 1/norm(inv(In)*h2);
+% r2 = scale*inv(Im)*h2;
+% 
+% r3 = cross(r1,r2);
+% 
+% t = scale*inv(Im)*h3;
+% 
+% R = [r1,r2,r3];
+% 
+% Em = [r1, r2, r3, t];
+% 
+
+

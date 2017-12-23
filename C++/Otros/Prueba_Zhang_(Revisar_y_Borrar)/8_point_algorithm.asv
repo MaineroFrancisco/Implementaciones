@@ -1,0 +1,16 @@
+% Zhang Complete Test
+clear;
+
+load('c11_v2_obj.mat');
+c1_1 = [c1' ones(size(c1',1),1)];
+
+load('c21_v2_obj.mat');
+c2_1 = [c2' ones(size(c2',1),1)];
+
+%%
+
+
+%%
+if any(size(x1)~=[3 7]) | any(size(x2)~=[3 7])
+  error('Wrong size of input points.');
+end

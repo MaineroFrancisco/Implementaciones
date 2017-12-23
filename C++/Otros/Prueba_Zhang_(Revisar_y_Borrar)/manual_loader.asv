@@ -1,0 +1,16 @@
+%Manual Loader
+
+%%
+% Camara 0
+cam1 = imread('D:\Facultad\Proyecto\SL_Tests\Calibration\Test_Zhang\Capturas\cap0_c1_v2.jpeg');
+c1 = readPoints(cam1);
+
+save('c11_v2_obj.mat', 'c1');
+clf;
+
+% Camara 1
+cam2 = imread('D:\Facultad\Proyecto\SL_Tests\Calibration\Test_Zhang\Capturas\cap0_c2_v2.jpeg');
+c2 = readPoints(cam2);
+
+save('c21_v2.mat', 'c2');
+clf;

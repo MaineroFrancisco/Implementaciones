@@ -1,0 +1,275 @@
+% Test random
+
+clear;
+
+% Camara 1
+% 3x3
+Im_1 = [
+  578.6111    7.4281  320.8055
+         0  586.3536  261.5530
+         0         0    1.0000
+];
+
+%  3x4
+Em_1 = [
+     0.9327,    0.0267,   -0.3595,    0.2012;
+    -0.0156,   -0.9933,   -0.1145,    0.2031;
+    -0.3602,    0.1124,   -0.9261,    4.6803
+];
+
+P1 = Im_1*Em_1;
+
+% Camara 2
+% 3x3
+Im_2 = [
+     463.885, -134.241,  416.442;
+         0,  630.031,  200.027;
+         0,        0,    1.000
+];
+
+%  3x4
+Em_2 = [
+    0.8182,    0.0994,    0.5662,   -0.7447;
+    0.0732,  -0.9949,    0.0689,    0.8390;
+    0.5702,   -0.0149,   -0.8214,    4.8385
+];
+
+P2 = Im_2*Em_2;
+
+% Camara 3
+% 3x3
+Im_3 = [
+
+      467.7501,   -0.9717,  369.2487;
+         0,  505.1060,  360.6620;
+         0,         0,    1.0000
+
+];
+
+%  3x4
+Em_3 = [
+     0.8887,    0.1850,   -0.4196,    0.3993;
+   -0.0253,   -0.8938,   -0.4477,    0.2988;
+   -0.4579,    0.4085,   -0.7896,    5.4002
+
+];
+
+P3 = Im_3*Em_3;
+
+% Camara 4
+% 3x3
+% Im_4 = [
+% 
+%     688.120,   -0.8174,   345.120;
+%          0,    650.530,   320.237;
+%          0,         0,   1.0000
+% 
+% ];
+% 
+% %  3x4
+% Em_4 = [
+%     
+%     -0.5981,    0.0516,   -0.7998,    5.2589;
+%     -0.3287,   -0.9259,    0.1861,    2.2381;
+%     -0.7309,    0.3742,    0.5707,    5.1427
+% 
+% ];
+
+Im_4 = [
+
+      415.7501,     0,      320;
+         0,  468.1060,      240;
+         0,         0,    1.0000
+];
+
+%  3x4
+Em_4 = [
+    
+    -0.5981,    0.0516,   -0.7998,    5.2589;
+    -0.3287,   -0.9259,    0.1861,    2.2381;
+    -0.7309,    0.3742,    0.5707,    5.1427
+
+];
+
+
+P4 = Im_4 * Em_4;
+
+%% Planilla, para testear Zhang
+Planilla = [
+    0,0,0;
+    1,0,0;
+    0,1,0;
+    1,1,0
+];
+
+pl1_homg = [Planilla ones(size(Planilla,1),1)];
+pl1_hmg_noz = [pl1_homg(:,1:2) pl1_homg(:,4)];
+
+
+angle_y = 20*pi/180;
+Ry = [
+         cos(angle_y), 0, sin(angle_y);
+         0, 1, 0;
+         -sin(angle_y), 0, cos(angle_y)
+    ];
+Planilla = Ry * Planilla';
+Planilla = Planilla';
+
+pl2_homg = [Planilla ones(size(Planilla,1),1)];
+pl2_hmg_noz = [pl2_homg(:,1:2) pl2_homg(:,4)];
+
+
+angle_y = -50*pi/180;
+Ry = [
+         cos(angle_y), 0, sin(angle_y);
+         0, 1, 0;
+         -sin(angle_y), 0, cos(angle_y)
+    ];
+Planilla = Ry * Planilla';
+Planilla = Planilla';
+
+pl3_homg = [Planilla ones(size(Planilla,1),1)];
+pl3_hmg_noz = [pl3_homg(:,1:2) pl3_homg(:,4)];
+
+% 
+% pl_homg = [Planilla ones(size(Planilla,1),1)];
+% pl_hmg_noz = [pl_homg(:,1:2) pl_homg(:,4)];
+
+%% Objeto, Para testeo final
+
+obj = [
+  0, 0, 0;
+  1, 0, 0;
+  2, 0, 0;
+  3, 0, 0;
+  0, 1, 0;
+  1, 1, 0;
+  2, 1, 0;
+  3, 1, 0;
+  0, 1, 0;
+  1, 1, 0;
+  2, 1, 0;
+  3, 1, 0;
+];
+
+obj_h = [obj ones(size(obj,1),1)];
+% figure(1)
+% scatter3(obj(:,1),obj(:,2),obj(:,3))
+
+%% Imagenes
+c1_1 = P1*pl1_homg';
+c1_1 = c1_1';
+c1_2 = P1*pl2_homg';
+c1_2 = c1_2';
+c1_3 = P1*pl3_homg';
+c1_3 = c1_3';
+c1_obj = P1*obj_h';
+c1_obj =c1_obj';
+
+c2_1 = P2*pl1_homg';
+c2_1 = c2_1';
+c2_2 = P2*pl2_homg';
+c2_2 = c2_2';
+c2_3 = P2*pl3_homg';
+c2_3 = c2_3';
+c2_obj = P2*obj_h';
+c2_obj =c2_obj';
+
+c3_1 = P3*pl1_homg';
+c3_1 = c3_1';
+c3_2 = P3*pl2_homg';
+c3_2 = c3_2';
+c3_3 = P3*pl3_homg';
+c3_3 = c3_3';
+c3_obj = P3*obj_h';
+c3_obj =c3_obj';
+
+c4_1 = P4*pl1_homg';
+c4_1 = c4_1';
+c4_2 = P4*pl2_homg';
+c4_2 = c4_2';
+c4_3 = P4*pl3_homg';
+c4_3 = c4_3';
+c4_obj = P4*obj_h';
+c4_obj =c4_obj';
+
+for k = 1:size(c4_1,1)
+    c1_1(k,:) = c1_1(k,:)/c1_1(k,3);
+    c1_2(k,:) = c1_2(k,:)/c1_2(k,3);
+    c1_3(k,:) = c1_3(k,:)/c1_3(k,3);
+    
+    c2_1(k,:) = c2_1(k,:)/c2_1(k,3);
+    c2_2(k,:) = c2_2(k,:)/c2_2(k,3);
+    c2_3(k,:) = c2_3(k,:)/c2_3(k,3);
+    
+    c3_1(k,:) = c3_1(k,:)/c3_1(k,3);
+    c3_2(k,:) = c3_2(k,:)/c3_2(k,3);
+    c3_3(k,:) = c3_3(k,:)/c3_3(k,3);
+    
+    c4_1(k,:) = c4_1(k,:)/c4_1(k,3);
+    c4_2(k,:) = c4_2(k,:)/c4_2(k,3);
+    c4_3(k,:) = c4_3(k,:)/c4_3(k,3);
+    
+end
+
+for k=1:size(c4_obj,1)
+    c1_obj(k,:) = c1_obj(k,:)/c1_obj(k,3);
+    c2_obj(k,:) = c2_obj(k,:)/c2_obj(k,3);
+    c3_obj(k,:) = c3_obj(k,:)/c3_obj(k,3);
+    c4_obj(k,:) = c4_obj(k,:)/c4_obj(k,3);
+end
+
+plot_system(Em_1,Em_2,Em_3,1)
+plot_system(Em_1,Em_2,Em_4,1)
+scatter3(Planilla(:,1),Planilla(:,2),Planilla(:,3),'o','red')
+scatter3(pl2_homg(:,1),pl2_homg(:,2),pl2_homg(:,3),'o','magenta')
+scatter3(pl3_homg(:,1),pl3_homg(:,2),pl3_homg(:,3),'o','green')
+
+figure(3)
+
+scatter(c4_obj(:,1),c4_obj(:,2))
+
+c1_1= c1_1(:,1:2)';
+c1_2= c1_2(:,1:2)';
+c1_3= c1_3(:,1:2)';
+c1_obj= c1_obj(:,1:2)';
+
+c2_1= c2_1(:,1:2)';
+c2_2= c2_2(:,1:2)';
+c2_3= c2_3(:,1:2)';
+c2_obj= c2_obj(:,1:2)';
+
+c3_1= c3_1(:,1:2)';
+c3_2= c3_2(:,1:2)';
+c3_3= c3_3(:,1:2)';
+c3_obj= c3_obj(:,1:2)';
+
+c4_1= c4_1(:,1:2)';
+c4_2= c4_2(:,1:2)';
+c4_3= c4_3(:,1:2)';
+c4_obj= c4_obj(:,1:2)';
+
+save('c1_1.mat','c1_1')
+save('c1_2.mat','c1_2')
+save('c1_3.mat','c1_3')
+save('c1_obj.mat','c1_obj')
+
+save('c2_1.mat','c2_1')
+save('c2_2.mat','c2_2')
+save('c2_3.mat','c2_3')
+save('c2_obj.mat','c2_obj')
+
+save('c3_1.mat','c3_1')
+save('c3_2.mat','c3_2')
+save('c3_3.mat','c3_3')
+save('c3_obj.mat','c3_obj')
+
+save('c4_1.mat','c4_1')
+save('c4_2.mat','c4_2')
+save('c4_3.mat','c4_3')
+save('c4_obj.mat','c4_obj')
+
+save('Im_1.mat','Im_1')
+save('Im_2.mat','Im_2')
+save('Im_3.mat','Im_3')
+save('Im_4.mat','Im_4')

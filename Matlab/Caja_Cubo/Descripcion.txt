@@ -1,0 +1,14 @@
+Todas las capturaas en esta carpeta corresponden a uncubo de rubik encima de una caja de ibuprofeno.
+
+	*-----*
+	|     |
+	|     |
+	*-----*
+   *---------------*
+   |		   |
+   *---------------*
+
+	- Dos camaras Estaticas
+	- Cuadricula (imagen en cartulina), estatica tambien
+
+Ambas camaras ven la misma planilla y objeto, y se capturan al mismo tiempo.

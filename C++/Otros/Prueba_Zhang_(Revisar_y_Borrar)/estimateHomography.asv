@@ -1,0 +1,90 @@
+% ESTIMATE HOMOGRAPHY
+% B = H*A
+function [H] = estimateHomography(A,B)
+    N = size(A,1);
+    Na = getNormMatrix(A);
+    Nb = getNormMatrix(B);
+    
+    M = zeros(2*N,9);
+    
+    for j=1:N
+    
+        k = 2*j;
+        
+        %Normalizar
+        a = Na * A(j,:)';
+        
+        if a(3)~=0
+            a = a/a(3);
+        end
+        
+        b = Nb * B(j,:)';
+
+        if b(3)~=0
+            b = b/b(3);
+        end
+        
+        M(k-1,:) = [-a(1) -a(2) -1 0 0 0 a(1)*b(1) a(2)*b(1) b(1)]; 
+        M(k,:) = [0 0 0 -a(1) -a(2) -1 a(1)*b(2) a(2)*b(2) b(2)]; 
+        
+    end
+    
+    [U,S,V] = svd(M, 0);
+    S = diag(S);
+     
+    nullspace_dimension = sum(S < eps * S(1) * 1e3);
+    if nullspace_dimension > 1
+      fprintf('Nullspace is a bit roomy...');
+    end
+
+    v = V(:,size(V,2));
+
+    %% Optimizacion
+    err = norm(M*v);
+
+    while err>0.001
+        for j=1:N
+            
+            %Normalizar
+            a = Na * A(j,:)';
+
+            if a(3)~=0
+                a = a/a(3);
+            end
+
+            b = Nb * B(j,:)';
+
+            if b(3)~=0
+                b = b/b(3);
+            end
+            
+            erl = M(2*j-1,:)*v;
+            v = v - 0.1*erl*[-a(1) -a(2) -1 0 0 0 a(1)*b(1) a(2)*b(1) b(1)]';
+            
+            if norm(M*v)<0.001
+                break;
+            end
+            
+            erl = M(2*j,:)*v;
+            v = v - 0.1*erl*[0 0 0 -a(1) -a(2) -1 a(1)*b(2) a(2)*b(2) b(2)]';
+            
+            if norm(M*v)<0.001
+                break;
+            end
+         
+        end
+        err = norm(M*v);
+    end
+    
+    
+    %%
+    
+    Hp = [
+        v(1) v(2) v(3);
+        v(4) v(5) v(6);
+        v(7) v(8) v(9);
+    ];
+    
+    H = inv(Nb)*Hp*Na;
+    H = H/H(3,3);
+end

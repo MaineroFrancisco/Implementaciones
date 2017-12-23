@@ -1,0 +1,18 @@
+% Get Extrinsic Parameters
+function [R,t] = getExtrinsic(H,Im)
+    
+    h1 = H(:,1);
+    h2 = H(:,2);
+    h3 = H(:,3);
+    
+    scale = 1/norm(inv(Im)*h1);
+    
+    r1 = scale*inv(Im)*h1;
+    r2 = scale*inv(Im)*h2;
+    r3 = cross(r1,r2);
+
+    R = [r1 r2 r3];
+ 
+    t = scale*inv(Im)*h3;
+
+end
