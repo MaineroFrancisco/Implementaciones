@@ -7,10 +7,11 @@
 using namespace std;
 using namespace cv;
 
-void prueba_1_mask_chessboard(Mat img)
+Mat prueba_1_mask_chessboard(Mat img)
 {
 	double angle = 0.0f;
-	Mat show, show_ops;
+	Mat show, show_ops, diff;
+	Mat corr2, corr3;
 	int key = 0;
 	
 	imshow("Img", img);
@@ -23,7 +24,7 @@ void prueba_1_mask_chessboard(Mat img)
 	namedWindow("Correlation",1);
 	
 	double minVal = 0.0f, maxVal = 1.0f;
-	int bot=0, top=0;
+	int bot=250, top=255;
 	createTrackbar("top","Correlation",&top, 255, NULL, NULL);
 	createTrackbar("bot","Correlation",&bot, 255, NULL, NULL);
 	
@@ -49,42 +50,24 @@ void prueba_1_mask_chessboard(Mat img)
 		up = top/255.0f;
 		down = bot/255.0f;
 		
-		Mat corr2, corr3;
-//		threshold(corr,corr2,down,1.0f,CV_THRESH_BINARY);
-//		
-//		threshold(corr,corr3,up,1.0f,CV_THRESH_BINARY_INV);
-//		
-//		bitwise_and(corr2,corr3,corr);
-		
 		minMaxLoc(corr_ops, &minVal, &maxVal);
 		
 		corr_ops = corr_ops + abs(minVal);
 		corr_ops = corr_ops / (abs(minVal)+maxVal);
 
-//		threshold(corr_ops,corr2,down,1.0f,CV_THRESH_BINARY);
-//		
-//		threshold(corr_ops,corr3,up,1.0f,CV_THRESH_BINARY_INV);
-//		
-//		bitwise_and(corr2,corr3,corr_ops);
-		
-		
-//		bitwise_xor(corr,corr_ops,corr);
-		
-		//		threshold(corr,corr,3000.0f,1.0f,CV_THRESH_BINARY);
-		
 		imshow("Corr", corr);
 		imshow("Corr_Ops", corr_ops);
 		
-		Mat diff = corr-corr_ops;
+		diff = corr-corr_ops;
+		
+		diff = abs(diff);
 		
 		threshold(diff,corr2,down,1.0f,CV_THRESH_BINARY);
 		
 		threshold(diff,corr3,up,1.0f,CV_THRESH_BINARY_INV);
 		
 		bitwise_and(corr2,corr3,diff);
-		
-		
-//		bitwise_xor(corr,corr_ops,diff);
+
 		imshow("Correlation",diff);
 		
 		if(key == 13){
@@ -96,6 +79,8 @@ void prueba_1_mask_chessboard(Mat img)
 		key = waitKey(5);
 		//		cout<<"Key: "<<key<<endl;
 	}
+	
+	return diff;
 }
 
 void prueba_2_mask_chessboard(Mat img)
@@ -465,7 +450,7 @@ int main(int argc, char** argv) {
 
 	
 	/// La mejor solucion hasta ahora... discriminar con colores, agregar features...
-	prueba_1_mask_chessboard(img);
+	Mat points = prueba_1_mask_chessboard(img);
 	
 //	prueba_2_mask_chessboard(img);
 	
