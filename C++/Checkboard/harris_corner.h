@@ -225,25 +225,33 @@ Point2i* filter_features_vector(Mat corner_score, int cantidad_features = 500){
 			{
 				if (score[k]<score[l])
 				{
-					for(int c=k;c<cantidad_features;c++) 
+					features[l] = (features[k]+features[l])/2;
+					score[l] = (score[k]+score[l])/2;
+					
+					for(int c=k;c<cantidad_features-1;c++) 
 					{
 						features[c] = features[c+1];
 						score[c] = score[c+1];
 					}
+					k--;
 				}
 				else
 				{
-					for(int c=l;c<cantidad_features;c++) 
+					features[k] = (features[k]+features[l])/2;
+					score[k] = (score[k]+score[l])/2;
+					
+					for(int c=l;c<cantidad_features-1;c++) 
 					{
 						features[c] = features[c+1];
 						score[c] = score[c+1];
 					}
+					l--;
 				}
 				
 				features[cantidad_features-1] = Point2f(0,0);
 				score[cantidad_features-1] = 0;
 				
-//				cantidad_features--;
+				cantidad_features--;
 			}
 		}
 	}	

@@ -4,6 +4,7 @@
 #include "harris_corner.h"
 
 #include <vector>
+#include "label_segmentation.h"
 using namespace std;
 using namespace cv;
 
@@ -387,8 +388,8 @@ int main(int argc, char** argv) {
 	Mat out;
 	int v=80, vmax=255;
 	
-	//create a gui window:
-//	VideoCapture c("http://192.168.1.113:4747/mjpegfeed?640x480");
+//	create a gui window:
+//	VideoCapture c("http://192.168.1.101:4747/mjpegfeed?640x480");
 //	
 //	while(waitKey(5)!=27)
 //	{
@@ -396,13 +397,13 @@ int main(int argc, char** argv) {
 //		
 //		imshow("Img", img);
 //	}
-////	
+//	
 	Scalar lower_bound, upper_bound;
 	
 //	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Planillas_Calibrar\\2Bfo4.png",CV_LOAD_IMAGE_ANYCOLOR);
-	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Prueba_Completo\\Calib\\cam_2\\cap_0.png",CV_LOAD_IMAGE_ANYCOLOR);
+//	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Prueba_Completo\\Calib\\cam_2\\cap_4.png",CV_LOAD_IMAGE_ANYCOLOR);
 	
-//	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\Matlab\\Caja_Cubo\\c2_2.jpeg",CV_LOAD_IMAGE_ANYCOLOR);
+	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\Matlab\\Caja_Cubo\\c2_1.jpeg",CV_LOAD_IMAGE_ANYCOLOR);
 	
 	mask = Mat::ones(480,640,CV_8UC1)*255;
 	
@@ -419,20 +420,19 @@ int main(int argc, char** argv) {
 	int id_cam = 3;
 	cvtColor(c1,img,CV_BGR2GRAY);
 	
-//////	Mat corner_score = harris_corner_score(img,mask);
-//////	
-//////	ostringstream os;
-//////	os<<id_cam;
-//////	namedWindow("camara "+os.str(),1);
-////////	
-//////	int maxcant=1000, value1 = 10, value2 = 10;
-//////	createTrackbar("Features","camara "+os.str(),&value1,maxcant);
-////////	
-//////////	vector<Point2i> f = filter_features(corner_score,maxcant);
-////////	///ES UNA CAGADA, ARREGLAR
-//////	Point2i* f = filter_features_vector(corner_score,maxcant);
-//////
-//////	
+	Mat corner_score = harris_corner_score(img,mask);
+	
+	ostringstream os;
+	os<<id_cam;
+	namedWindow("camara "+os.str(),1);
+	
+	int maxcant=1000, value1 = 10, value2 = 10;
+	createTrackbar("Features","camara "+os.str(),&value1,maxcant);
+//	
+////	vector<Point2i> f = filter_features(corner_score,maxcant);
+//	///ES UNA CAGADA, ARREGLAR
+	Point2i* f = filter_features_vector(corner_score,maxcant);
+
 //////	Mat show;
 //////
 //////	while(waitKey(5)!= 27){
@@ -450,7 +450,7 @@ int main(int argc, char** argv) {
 
 	
 	/// La mejor solucion hasta ahora... discriminar con colores, agregar features...
-	Mat points = prueba_1_mask_chessboard(img);
+//	Mat points = prueba_1_mask_chessboard(img);
 	
 //	prueba_2_mask_chessboard(img);
 	
@@ -462,6 +462,128 @@ int main(int argc, char** argv) {
 	/// hough LINES
 //	hough_lines_corners(img, c1);
 	
+	
+	double angle = 0.0f;
+	Mat show, show_ops, diff;
+	Mat corr2, corr3;
+	int key = 0;
+	
+//	imshow("Img", img);
+//	c1.copyTo(img);
+	namedWindow("Correlation",1);
+////////	
+////////	VideoCapture c("http://192.168.1.101:4747/mjpegfeed?640x480");
+////////	
+	while(key!= 27){
+////////		
+////////		c >> img;
+////////		
+		imshow("Img", img);
+		
+//		img.copyTo(c1);
+//		cvtColor(img,img,CV_BGR2GRAY);
+
+		/// Mascara
+	Scalar media_global = mean(img);
+	threshold(img,img,media_global.val[0],255,CV_THRESH_BINARY);
+	
+	double minVal = 0.0f, maxVal = 1.0f;
+	int bot=200, top=255;
+		
+		show = rotate_mask(checkb_mask, angle);
+		show_ops = rotate_mask(checkb_mask_ops, angle);
+		imshow("mask",show);
+		
+		Mat corr,corr_ops;
+		filter2D(img,corr,CV_32FC1,show_ops);
+		filter2D(img,corr_ops,CV_32FC1,show);
+		
+		minMaxLoc(corr, &minVal, &maxVal);
+		
+		corr = corr + abs(minVal);
+		corr = corr / (abs(minVal)+maxVal);
+
+		double up, down;
+		up = top/255.0f;
+		down = bot/255.0f;
+		
+		minMaxLoc(corr_ops, &minVal, &maxVal);
+		
+		corr_ops = corr_ops + abs(minVal);
+		corr_ops = corr_ops / (abs(minVal)+maxVal);
+		
+//		imshow("Corr", corr);
+//		imshow("Corr_Ops", corr_ops);
+//		
+		diff = corr-corr_ops;
+		
+		diff = abs(diff);
+		
+		threshold(diff,corr2,down,1.0f,CV_THRESH_BINARY);
+		
+		threshold(diff,corr3,up,1.0f,CV_THRESH_BINARY_INV);
+		
+		bitwise_and(corr2,corr3,diff);
+		
+//		diff.convertTo(diff,CV_8UC1);
+//		Mat output;
+//		vector<label> vl =  label_segmentation(diff,output);
+////		
+////		minMaxLoc(corr, &minVal, &maxVal);
+//		output = (output/output)*255;
+//		
+//		imshow("Correlation",output);
+//		imshow("Correlation",diff);
+		
+		
+		/// Features
+		
+		c1.copyTo(show);
+		
+		value1 = getTrackbarPos("Features","camara "+os.str());
+		
+		for(int i=0;i<value1;i++) 
+		{
+			if(diff.at<float>(f[i].y, f[i].x) == 1.0f){
+//				circle(diff,f[i],5,Scalar(0,255,0));
+				circle(diff,f[i],5,Scalar(255));
+			}
+		}
+		
+//		imshow("camara "+os.str(),show);
+		imshow("Correlation",diff);
+		
+		if(key == 13){
+			cout<< "Rotacion 25 grados: "<<angle<<endl;
+			cout<< minVal << "	"<< maxVal<< endl;
+			angle += 25.0f;
+		}
+		
+//		cout<< "Point count: "<< vl.size()<<endl;
+		
+		key = waitKey(5);	namedWindow("Correlation",1);
+		//		cout<<"Key: "<<key<<endl;
+	}
+
+	Point2i* final_p = new Point2i[42];
+	
+	int k =0;
+	for(int i=0;i<value1;i++) 
+	{
+		if(diff.at<float>(f[i].y, f[i].x) == 1.0f){
+			//				circle(diff,f[i],5,Scalar(0,255,0));
+//			circle(diff,f[i],5,Scalar(255));
+			
+			if(k>41){break;}
+			final_p[k] = f[i];
+			k++;
+		}
+	}
+	
+	/// Ordenar (de izquierda a derecha, de arriba a abajo) ... asi usarlos para calibrar...
+	
+	delete final_p;
+	delete f;
 	waitKey(0);
 	return 0;
 } 
