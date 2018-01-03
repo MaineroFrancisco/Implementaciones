@@ -7,187 +7,252 @@
 #include <iostream>
 #include <vector>
 #include "b_tree.h"
+
 using namespace std;
 using namespace cv;
 
 b_tree features_tree;
 
 #define PI 3.14159265
-
-Mat harris_corner_score(Mat img, Mat mask)
+/// EXTRAS
+void show_mat(Mat img)
 {
-	///-------------------------------------------------------------------------
-	///Mascaras gaussianas para derivadas
+	cv::Size s = img.size();
 	
-	// Dx
-	Mat dx = (Mat_<float>(3, 3) << -1.0f, 0.0f, 1.0f,
-			  -1.0f,  0.0f,  1.0f,
-			  -1.0f,  0.0f,  1.0f);
-	
-	//Dy
-	Mat dy;
-	transpose(dx,dy);
-	
-	//Calculate Dx
+	for(int i=0;i<s.height;i++) 
+	{
+		ostringstream os;
+		for(int j=0;j<s.width;j++)
+		{
+			float im = img.at<float>(i,j);
+			
+			os << img.at<float>(i,j);
+			os << ", ";
+			
+		}
+		cout << os.str() <<endl;
+		
+		os.clear();
+		os<<"";
+	}
+}
+
+/// Funciones
+
+///-------------------------------------------------------------------------
+///Mascaras gaussianas para derivadas
+
+/// el tamanio necesita variar si voy a jugar ocn multiples resoluciones de una misma foto, completar todo primero luego probar
+// Dx
+Mat dx = (Mat_<float>(3, 3) << -1.0f, 0.0f, 1.0f,
+		  -1.0f,  0.0f,  1.0f,
+		  -1.0f,  0.0f,  1.0f);
+
+//Dy
+Mat dy = (Mat_<float>(3, 3) << -1.0f, -1.0f, -1.0f,
+		  0.0f,  0.0f,  0.0f,
+		  1.0f,  1.0f,  1.0f);
+
+///-------------------------------------------------------------------------
+
+enum score_type {
+		HARRIS_NOBEL,
+		HARRIS_STEPHENS,
+		SHI_TOMASI
+};
+
+Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
+{
 	img.convertTo(img, CV_32F);
 	
-	Mat iDx = Mat::zeros(img.size(),CV_32F);
+	/// Calculo las derivadas
+	
+	Mat iDx = Mat::zeros(img.size(),CV_32F); 
+	Mat iDy = Mat::zeros(img.size(),CV_32F);
+	
+	Mat iDx2, iDy2, iDxDy;
+		
+	//Calculate Dx
 	filter2D(img, iDx,-1,dx,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
 	
 	//Calculate Dx^2
-	Mat iDx2;
 	multiply(iDx, iDx,iDx2);
 	
 	//Calculate Dy
-	Mat iDy = Mat::zeros(img.size(),CV_32F);
 	filter2D(img, iDy,-1,dy,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
 	
 	//Calculate Dy^2
-	Mat iDy2;
 	multiply(iDy, iDy,iDy2);
 	
 	//Calculate DxDy
-	Mat iDxDy;
 	multiply(iDx, iDy,iDxDy);
 	
 	///-------------------------------------------------------------------------
 	///Applying gaussian filter
-	int size = 3;
+	Size s(3,3);
 	double sigma = 1.5f;
 	
-	//	Mat kernel ={Mat<float>(3,3) << 1.0f, 1.0f, 1.0f,
-	//									1.0f, 1.0f, 1.0f,
-	//									1.0f, 1.0f, 1.0f
-	//				}
-	
-	Mat kernel = getGaussianKernel(size,sigma,CV_32F);
 	//Kernel Gaussiano de Integracion (Explicacion)
 	/**/
-	filter2D(iDx2,iDx2, -1, kernel, cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
-	
-	filter2D(iDy2,iDy2, -1, kernel, cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
-	filter2D(iDxDy,iDxDy, -1, kernel, cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
-	
+	GaussianBlur(iDx2,iDx2,s,sigma,sigma);
+	GaussianBlur(iDy2,iDy2,s,sigma,sigma);
+	GaussianBlur(iDxDy,iDxDy,s,sigma,sigma);
+
 	///-------------------------------------------------------------------------
-	/// Creating harris Matrix
-	Mat harris_matrix = Mat::zeros(img.rows*2, img.cols*2,CV_32F);
+	/// Calculo el puntaje para cada pixel de la imagen, mayor puntaje -> mejor feature
 	Size size_img = img.size();
+
+	/// Computing corner Score		|| Formula 1: det - k*(trace)^2		|| Formula 2: det / trace	|| Shi-Tomasi: min(Dx,Dy)
+	Mat corner_score = Mat::zeros(size_img,CV_32FC1);
+	Mat det, trace, iDxDy2;
 	
-	Rect roi_dx_2 = Rect(0,0,size_img.width,size_img.height);
-	Rect roi_dy_2 = Rect(size_img.width,size_img.height,size_img.width,size_img.height);
-	Rect roi_dy_dx = Rect(0,size_img.height,size_img.width,size_img.height);
-	Rect roi_dx_dy = Rect(size_img.width,0,size_img.width,size_img.height);
+	switch(tipo){
+		
+		case HARRIS_NOBEL:
+			// Calculate the Determinant
+			multiply(iDxDy,iDxDy,iDxDy2);
+			multiply(iDx2,iDy2,det);	
+			subtract(det,iDxDy2,det);
+			
+			//Calculate the trace
+			add(iDx2,iDy2,trace);
+			
+			divide(det,trace,corner_score);
+			
+			break;
+		case SHI_TOMASI:
+			
+//			for(int i=0;i<640;i++)
+//			{
+//				for(int j=0;j<640;j++) 
+//				{
+//					
+//				}
+//			}
+//			
+			
+			break;
+		case HARRIS_STEPHENS:
+			
+			// Calculate the Determinant
+			multiply(iDxDy,iDxDy,iDxDy2);
+			multiply(iDx2,iDy2,det);	
+			subtract(det,iDxDy2,det);
+			
+			//Calculate the trace
+			add(iDx2,iDy2,trace);
+			
+			// Calculate Corner Score by "Formula 1"
+			Scalar k(0.04);
+			multiply(trace,trace, trace);
+			multiply(trace,k,trace);
+			subtract(det,trace,corner_score);	
+			
+			break;
+	}
 	
+	/// Devolver imagen en rango 0 a 1
 	
-	iDx2.copyTo(harris_matrix(roi_dx_2));
-	iDy2.copyTo(harris_matrix(roi_dy_2));
-	iDxDy.copyTo(harris_matrix(roi_dy_dx));
-	iDxDy.copyTo(harris_matrix(roi_dx_dy));
+	Mat output;
+	double minVal, maxVal;
+	
+	minMaxLoc(corner_score, &minVal, &maxVal);
+	
+	maxVal = (maxVal+abs(minVal));
+	
+	corner_score = corner_score+abs(minVal);
+	corner_score = corner_score/maxVal;
+	
+	corner_score.copyTo(output,mask);
+
+	/// Non-Maximal Supression -> con vecindades de 3x3... revisar luego...
+	Mat NMS;
+	Size corner_size = corner_score.size();
+	int ult_x = corner_size.width-1;
+	int ult_y = corner_size.height-1;
+	
+	int nms_height, nms_width, pos_x, pos_y;
+	for( int i = 0; i<=ult_x; i++)
+	{
+		if(i == 0)
+		{
+			nms_width = 2;
+			pos_x = i;
+		}
+		else{
+			if(i == ult_x)
+			{
+				nms_width = 2;
+				pos_x = i-1;
+			}
+			else{
+				nms_width = 3;
+				pos_x = i-1;
+			}
+		}
+		
+		for( int j = 0; j<=ult_y; j++)
+		{
+				
+			if(j == 0)
+			{
+				nms_height = 2;
+				pos_y = j;
+			}
+			else{
+					if(j == ult_y)
+					{
+						nms_height = 2;
+						pos_y = j-1;
+					}
+					else{
+						nms_height = 3;
+						pos_y = j-1;
+					}
+			}
+			
+			NMS = corner_score(Rect(pos_x,pos_y,nms_width,nms_height));
+			
+			minMaxLoc(NMS,&minVal,&maxVal);
+			
+			if (corner_score.at<float>(j,i) < maxVal)
+			{
+				output.at<float>(j,i) = 0.0f;	
+			}
+			
+		}
+	}
+
+	/// Visualizar
+	//	Mat harris_matrix = Mat::zeros(img.rows*2, img.cols*2,CV_32F);
+	//	
+	//	Rect roi_dx_2 = Rect(0,0,size_img.width,size_img.height);
+	//	Rect roi_dy_2 = Rect(size_img.width,size_img.height,size_img.width,size_img.height);
+	//	Rect roi_dy_dx = Rect(0,size_img.height,size_img.width,size_img.height);
+	//	Rect roi_dx_dy = Rect(size_img.width,0,size_img.width,size_img.height);
+	//	
+	//	
+	//	iDx2.copyTo(harris_matrix(roi_dx_2));
+	//	iDy2.copyTo(harris_matrix(roi_dy_2));
+	//	iDxDy.copyTo(harris_matrix(roi_dy_dx));
+	//	iDxDy.copyTo(harris_matrix(roi_dx_dy));
 	//	imshow("Harris", harris_matrix);		
 	//	waitKey(0);
 	
-	/// Computing corner Score		|| Formula 1: det - k*(trace)^2		|| Formula 2: det / trace
-	Mat corner_score = Mat::zeros(size_img,CV_32FC1);
-	Mat det;
-	Mat trace;
-	
-	// Calculate the Determinant
-	Mat iDxDy2;
-	multiply(iDxDy,iDxDy,iDxDy2);
-	multiply(iDx2,iDy2,det);	
-	subtract(det,iDxDy2,det);
-	
-	//Calculate the trace
-	Scalar k(0.04);
-	add(iDx2,iDy2,trace);
-	
-	// Calculate Corner Score by "Formula 1"
-	multiply(trace,trace, trace);
-	multiply(trace,k,trace);
-	subtract(det,trace,corner_score);
-	
-	double minVal, maxVal;
-	minMaxLoc(corner_score, &minVal, &maxVal);
-	
-	corner_score = corner_score+abs(minVal);
-	cout<<minVal+abs(minVal)<<" "<<maxVal+abs(minVal)<<endl;
-	
-	Mat output;
-	corner_score.copyTo(output,mask);
-	
-//	imshow("Output",output);
-//	waitKey(0);
-	
-	
-//	return corner_score;
 	return output;
 }
 
-Point2i* filter_features(Mat corner_score, int cantidad_features = 500){
-	///Ordering
-	
-	Mat bin = Mat::zeros(corner_score.size(),CV_8UC1);
-
-	Point2i* features; 
-	double score[cantidad_features];
-	
-	bool close;
-	int i, j, k, c;
-	int num_f = 0;
-	int thresh = 10;
-	for( i=0;i<corner_score.size().width;i++) 
-	{
-		for( j=0;j<corner_score.size().height;j++) 
-		{
-			features_tree.insert(Point2i(i,j), corner_score.at<float>(j,i));
-		}
-		cout<<i<<" " <<j<<endl;
-	}
-	
-	cout<<cantidad_features<<endl;
-	
-	features = new Point2i[features_tree.get_size()];
-	
-	vector<Point2i> vp;
-	
-	vp = features_tree.get_tree();
-	
-	
-	for(i=0;i<features_tree.get_size();i++) 
-	{
-		features[i] = vp[i];
-	}
-	
-	cout<< "Vector: "<<vp.size()<<endl;
-	
-	return features;
-}
-
 ///----------------------------------------------------------------------------
-
-
-Point2i* filter_features_vector(Mat corner_score, int cantidad_features = 500){
+vector<Point2i> filter_features(Mat corner_score, int cantidad_features = 500){
 	///Ordering
-	
-	double minVal, maxVal;
-	minMaxLoc(corner_score, &minVal, &maxVal);
-	
-	corner_score = corner_score+abs(minVal);
-	cout<<minVal+abs(minVal)<<" "<<maxVal+abs(minVal)<<endl;
 	
 	Mat bin = Mat::zeros(corner_score.size(),CV_8UC1);
 	
-	Point2i* features = new Point2i[cantidad_features];
-	double score[cantidad_features];
-	for(int i=0;i<cantidad_features;i++) 
-	{
-		features[i] = Point2f(0,0);
-		score[i] = 0;
-	}
+	vector<Point2i> features;
+	vector<float> score;
 	
-	bool close;
-	int i, j, k, c;
-	int num_f = 0;
+	int i, j, k, l, c;
+	int num_f = 1;
 	int thresh = 10;
 	for( i=0;i<corner_score.size().width;i++) 
 	{
@@ -195,25 +260,58 @@ Point2i* filter_features_vector(Mat corner_score, int cantidad_features = 500){
 		{
 			float corner = corner_score.at<float>(j,i);
 			Point2f position(i,j);
-			for( k=0;k<cantidad_features;k++) 
-			{		
-				
-				if(corner > score[k])
+//			for( k=0;k<num_f;k++) 
+//			{		
+//				if(corner > score[k])
+//				{
+//					
+//					for(l=num_f-1;l>k;l--) 
+//					{
+//						features[l] = features[l-1];
+//						score[l] = score[l-1];
+//					}
+//					
+//					score[k] = corner;
+//					features[k] = position;
+//					break;	
+//				}
+//			}
+			
+			if(features.empty())
+			{
+				features.push_back(position);
+				score.push_back(corner);
+			}
+			else{
+				num_f = features.size();
+				for( k=0;k<num_f;k++) 
 				{
-					
-					for(int l=cantidad_features-1;l>k;l--) 
+					if(corner > score[k])
 					{
-						features[l] = features[l-1];
-						score[l] = score[l-1];
+						// Si todavia no tengo la cantidad deseada, agrego uno al arreglo (repito el ultimo)
+						if(num_f<cantidad_features)
+						{
+							features.push_back(features[num_f-1]);
+							score.push_back(score[num_f-1]);
+						}
+						
+						// Muevo todo el arreglo para no perder valores y poder ubicar el nuevo valor
+						for(l=num_f-1;l>k;l--) 
+						{
+							features[l] = features[l-1];
+							score[l] = score[l-1];
+						}
+						
+						// Inserto el nuevo valor en la posicion correspondiente
+						score[k] = corner;
+						features[k] = position;
+						
+						break;	
 					}
-					
-					score[k] = corner;
-					features[k] = position;
-					break;	
 				}
 			}
+			
 		}
-		cout<<i<<" " <<j<<endl;
 	}
 	
 //		Eliminar similares
@@ -225,9 +323,6 @@ Point2i* filter_features_vector(Mat corner_score, int cantidad_features = 500){
 			{
 				if (score[k]<score[l])
 				{
-					features[l] = (features[k]+features[l])/2;
-					score[l] = (score[k]+score[l])/2;
-					
 					for(int c=k;c<cantidad_features-1;c++) 
 					{
 						features[c] = features[c+1];
@@ -236,10 +331,7 @@ Point2i* filter_features_vector(Mat corner_score, int cantidad_features = 500){
 					k--;
 				}
 				else
-				{
-					features[k] = (features[k]+features[l])/2;
-					score[k] = (score[k]+score[l])/2;
-					
+				{	
 					for(int c=l;c<cantidad_features-1;c++) 
 					{
 						features[c] = features[c+1];
@@ -280,20 +372,6 @@ Mat checkb_mask = (Mat_<float>(11,11) <<
 				   0.0f, 0.0f, 0.0f, 0.0f,0.0f,0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f
 				   );
 
-//Mat checkb_mask = (Mat_<float>(9,9) <<  
-//				   0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-//				   0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-//				   0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-//				   
-//				   1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-//				   1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-//				   1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-//				   
-//				   1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-//				   1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-//				   1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f
-//				   );
-
 Mat checkb_mask_ops = (Mat_<float>(11,11) <<  
 					
 				   0.0f, 0.0f, 0.0f, 0.0f,0.0f,0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
@@ -311,28 +389,6 @@ Mat checkb_mask_ops = (Mat_<float>(11,11) <<
 				   1.0f, 1.0f, 1.0f, 1.0f,0.0f,0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
 				   
 				   );
-
-void show_mat(Mat img)
-{
-	cv::Size s = img.size();
-	
-	for(int i=0;i<s.height;i++) 
-	{
-		ostringstream os;
-		for(int j=0;j<s.width;j++)
-		{
-			float im = img.at<float>(i,j);
-			
-			os << img.at<float>(i,j);
-			os << ", ";
-			
-		}
-		cout << os.str() <<endl;
-		
-		os.clear();
-		os<<"";
-	}
-}
 
 ///Radianes o Angulos?
 Mat rotate_mask(Mat mask, double angle)

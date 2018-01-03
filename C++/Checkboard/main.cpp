@@ -353,35 +353,62 @@ void prueba_4_mask_chessboard(Mat img)
 
 void hough_lines_corners(Mat img, Mat c1)
 {
-	Mat dst;
+	Mat dst, copy_c1;
+	c1.copyTo(copy_c1);
+	
 	Canny(img, dst, 50, 200, 3);
 	
-//	vector<Vec2f> lines;
-//	HoughLines(dst, lines, 1, CV_PI/180, 100, 0, 0 );
+	namedWindow("detected lines",1);
 	
-//	for( size_t i = 0; i < lines.size(); i++ )
-//	{
-//		float rho = lines[i][0], theta = lines[i][1];
-//		Point pt1, pt2;
-//		double a = cos(theta), b = sin(theta);
-//		double x0 = a*rho, y0 = b*rho;
-//		pt1.x = cvRound(x0 + 1000*(-b));
-//		pt1.y = cvRound(y0 + 1000*(a));
-//		pt2.x = cvRound(x0 - 1000*(-b));
-//		pt2.y = cvRound(y0 - 1000*(a));
-//		line( cdst, pt1, pt2, Scalar(0,0,255), 3, CV_AA);
-//	}
+	int intersection = 100, r = 1, t = 100, srn =0, stn = 0;
+	
+	createTrackbar("intersections", "detected lines", &intersection,500,NULL,NULL);
+	createTrackbar("r", "detected lines", &r,1000,NULL,NULL);
+	createTrackbar("theta", "detected lines", &t,1000,NULL,NULL);
+	createTrackbar("srn", "detected lines", &srn,500,NULL,NULL);
+	createTrackbar("stn", "detected lines", &stn,500,NULL,NULL);
+	
+	
+	vector<Vec2f> lines;
+	
+	while(waitKey(15)!=27){
+		copy_c1.copyTo(c1);
+		
+		intersection = getTrackbarPos("intersections","detected lines");
+		r = getTrackbarPos("r","detected lines");
+		t = getTrackbarPos("theta","detected lines");
+		srn = getTrackbarPos("srn","detected lines");
+		stn = getTrackbarPos("stn","detected lines");
+		
+		float th = t/100.0f;
+		HoughLines(dst, lines, r, th*CV_PI/180, intersection, srn, stn );
+//		HoughLines(dst, lines, 1, CV_PI/180, intersection, 0, 0 );
+		
+		for( size_t i = 0; i < lines.size(); i++ )
+		{
+			float rho = lines[i][0], theta = lines[i][1];
+			Point pt1, pt2;
+			double a = cos(theta), b = sin(theta);
+			double x0 = a*rho, y0 = b*rho;
+			pt1.x = cvRound(x0 + 1000*(-b));
+			pt1.y = cvRound(y0 + 1000*(a));
+			pt2.x = cvRound(x0 - 1000*(-b));
+			pt2.y = cvRound(y0 - 1000*(a));
+			line( c1, pt1, pt2, Scalar(0,0,255), 3, CV_AA);
+		}
 
-	vector<Vec4i> lines;
-	HoughLinesP(dst, lines, 1, CV_PI/180, 50, 50, 10 );
-	for( size_t i = 0; i < lines.size(); i++ )
-	{
-		Vec4i l = lines[i];
-		line( c1, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+	//	vector<Vec4i> lines;
+	//	HoughLinesP(dst, lines, 1, CV_PI/180, 50, 50, 10 );
+	//	for( size_t i = 0; i < lines.size(); i++ )
+	//	{
+	//		Vec4i l = lines[i];
+	//		line( c1, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+	//	}
+
+//		imshow("source", img);
+		imshow("detected lines", c1);
+//		waitKey(0);
 	}
-
-	imshow("source", img);
-	imshow("detected lines", c1);
 }
 int main(int argc, char** argv) {
 	Mat img, hsv, mask;
@@ -401,9 +428,9 @@ int main(int argc, char** argv) {
 	Scalar lower_bound, upper_bound;
 	
 //	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Planillas_Calibrar\\2Bfo4.png",CV_LOAD_IMAGE_ANYCOLOR);
-//	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Prueba_Completo\\Calib\\cam_2\\cap_4.png",CV_LOAD_IMAGE_ANYCOLOR);
+	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Prueba_Completo\\Calib\\cam_2\\cap_4.png",CV_LOAD_IMAGE_ANYCOLOR);
 	
-	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\Matlab\\Caja_Cubo\\c2_1.jpeg",CV_LOAD_IMAGE_ANYCOLOR);
+//	img = imread("D:\\Facultad\\Proyecto\\Implementaciones\\Matlab\\Caja_Cubo\\c2_1.jpeg",CV_LOAD_IMAGE_ANYCOLOR);
 	
 	mask = Mat::ones(480,640,CV_8UC1)*255;
 	
@@ -422,31 +449,32 @@ int main(int argc, char** argv) {
 	
 	Mat corner_score = harris_corner_score(img,mask);
 	
+	imshow("Corner Score", corner_score);
+	
 	ostringstream os;
 	os<<id_cam;
 	namedWindow("camara "+os.str(),1);
 	
 	int maxcant=1000, value1 = 10, value2 = 10;
 	createTrackbar("Features","camara "+os.str(),&value1,maxcant);
-//	
-////	vector<Point2i> f = filter_features(corner_score,maxcant);
+	
 //	///ES UNA CAGADA, ARREGLAR
-	Point2i* f = filter_features_vector(corner_score,maxcant);
+	vector<Point2i> f = filter_features(corner_score,maxcant);
 
-//////	Mat show;
-//////
-//////	while(waitKey(5)!= 27){
-//////		c1.copyTo(show);
-//////		
-//////		value1 = getTrackbarPos("Features","camara "+os.str());
-//////		
-//////		for(int i=0;i<value1;i++) 
-//////		{
-//////			circle(show,f[i],5,Scalar(0,255,0));
-//////		}
-//////		
-//////		imshow("camara "+os.str(),show);
-//////	}
+////////	Mat show;
+////////
+////////	while(waitKey(5)!= 27){
+////////		c1.copyTo(show);
+////////		
+////////		value1 = getTrackbarPos("Features","camara "+os.str());
+////////		
+////////		for(int i=0;i<value1;i++) 
+////////		{
+////////			circle(show,f[i],5,Scalar(0,255,0));
+////////		}
+////////		
+////////		imshow("camara "+os.str(),show);
+////////	}
 
 	
 	/// La mejor solucion hasta ahora... discriminar con colores, agregar features...
@@ -525,16 +553,6 @@ int main(int argc, char** argv) {
 		
 		bitwise_and(corr2,corr3,diff);
 		
-//		diff.convertTo(diff,CV_8UC1);
-//		Mat output;
-//		vector<label> vl =  label_segmentation(diff,output);
-////		
-////		minMaxLoc(corr, &minVal, &maxVal);
-//		output = (output/output)*255;
-//		
-//		imshow("Correlation",output);
-//		imshow("Correlation",diff);
-		
 		
 		/// Features
 		
@@ -545,12 +563,12 @@ int main(int argc, char** argv) {
 		for(int i=0;i<value1;i++) 
 		{
 			if(diff.at<float>(f[i].y, f[i].x) == 1.0f){
-//				circle(diff,f[i],5,Scalar(0,255,0));
-				circle(diff,f[i],5,Scalar(255));
+				circle(show,f[i],5,Scalar(0,255,0));
+//				circle(diff,f[i],5,Scalar(255));
 			}
 		}
 		
-//		imshow("camara "+os.str(),show);
+		imshow("camara "+os.str(),show);
 		imshow("Correlation",diff);
 		
 		if(key == 13){
@@ -583,7 +601,7 @@ int main(int argc, char** argv) {
 	/// Ordenar (de izquierda a derecha, de arriba a abajo) ... asi usarlos para calibrar...
 	
 	delete final_p;
-	delete f;
+	f.clear();
 	waitKey(0);
 	return 0;
 } 
