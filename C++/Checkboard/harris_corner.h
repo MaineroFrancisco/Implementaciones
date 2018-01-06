@@ -6,12 +6,9 @@
 
 #include <iostream>
 #include <vector>
-#include "b_tree.h"
 
 using namespace std;
 using namespace cv;
-
-b_tree features_tree;
 
 #define PI 3.14159265
 /// EXTRAS
@@ -44,12 +41,12 @@ void show_mat(Mat img)
 
 /// el tamanio necesita variar si voy a jugar ocn multiples resoluciones de una misma foto, completar todo primero luego probar
 // Dx
-Mat dx = (Mat_<float>(3, 3) << -1.0f, 0.0f, 1.0f,
+const Mat dx = (Mat_<float>(3, 3) << -1.0f, 0.0f, 1.0f,
 		  -1.0f,  0.0f,  1.0f,
 		  -1.0f,  0.0f,  1.0f);
 
 //Dy
-Mat dy = (Mat_<float>(3, 3) << -1.0f, -1.0f, -1.0f,
+const Mat dy = (Mat_<float>(3, 3) << -1.0f, -1.0f, -1.0f,
 		  0.0f,  0.0f,  0.0f,
 		  1.0f,  1.0f,  1.0f);
 
@@ -63,15 +60,35 @@ enum score_type {
 
 Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
 {
+	/// Variables
+	Size size_img = img.size();	//tamanio de la imagen
+	
+	Size s(3,3);				// tamanio de la ventana gaussiana
+	double sigma = 1.5f;		// desvio de la ventana gaussiana
+	
+	double minVal, maxVal;
+	
+	
+//	Mat iDx = Mat::zeros(img.size(),CV_32F); 
+//	Mat iDy = Mat::zeros(img.size(),CV_32F);
+	Mat iDx, iDy, iDx2, iDy2, iDxDy;
+	
+	
+	Mat corner_score = Mat::zeros(size_img,CV_32FC1);
+	Mat det, trace, iDxDy2;
+	
+	Mat NMS;
+	int ult_x = size_img.width-1;
+	int ult_y = size_img.height-1;
+	
+	int nms_height, nms_width, pos_x, pos_y;
+	
+	Mat output;
+	
 	img.convertTo(img, CV_32F);
 	
 	/// Calculo las derivadas
 	
-	Mat iDx = Mat::zeros(img.size(),CV_32F); 
-	Mat iDy = Mat::zeros(img.size(),CV_32F);
-	
-	Mat iDx2, iDy2, iDxDy;
-		
 	//Calculate Dx
 	filter2D(img, iDx,-1,dx,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
 	
@@ -89,8 +106,6 @@ Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
 	
 	///-------------------------------------------------------------------------
 	///Applying gaussian filter
-	Size s(3,3);
-	double sigma = 1.5f;
 	
 	//Kernel Gaussiano de Integracion (Explicacion)
 	/**/
@@ -100,12 +115,8 @@ Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
 
 	///-------------------------------------------------------------------------
 	/// Calculo el puntaje para cada pixel de la imagen, mayor puntaje -> mejor feature
-	Size size_img = img.size();
 
 	/// Computing corner Score		|| Formula 1: det - k*(trace)^2		|| Formula 2: det / trace	|| Shi-Tomasi: min(Dx,Dy)
-	Mat corner_score = Mat::zeros(size_img,CV_32FC1);
-	Mat det, trace, iDxDy2;
-	
 	switch(tipo){
 		
 		case HARRIS_NOBEL:
@@ -122,9 +133,9 @@ Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
 			break;
 		case SHI_TOMASI:
 			
-//			for(int i=0;i<640;i++)
+//			for(int i=0;i<size_img.width;i++)
 //			{
-//				for(int j=0;j<640;j++) 
+//				for(int j=0;j<size_img.height;j++) 
 //				{
 //					
 //				}
@@ -152,10 +163,6 @@ Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
 	}
 	
 	/// Devolver imagen en rango 0 a 1
-	
-	Mat output;
-	double minVal, maxVal;
-	
 	minMaxLoc(corner_score, &minVal, &maxVal);
 	
 	maxVal = (maxVal+abs(minVal));
@@ -163,15 +170,16 @@ Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
 	corner_score = corner_score+abs(minVal);
 	corner_score = corner_score/maxVal;
 	
-	corner_score.copyTo(output,mask);
+	if(!mask.empty())
+	{
+		corner_score.copyTo(output,mask);
+	}
+	else
+	{
+		corner_score.copyTo(output);
+	}
 
 	/// Non-Maximal Supression -> con vecindades de 3x3... revisar luego...
-	Mat NMS;
-	Size corner_size = corner_score.size();
-	int ult_x = corner_size.width-1;
-	int ult_y = corner_size.height-1;
-	
-	int nms_height, nms_width, pos_x, pos_y;
 	for( int i = 0; i<=ult_x; i++)
 	{
 		if(i == 0)
@@ -192,8 +200,7 @@ Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
 		}
 		
 		for( int j = 0; j<=ult_y; j++)
-		{
-				
+		{				
 			if(j == 0)
 			{
 				nms_height = 2;
@@ -219,31 +226,18 @@ Mat harris_corner_score(Mat img, Mat mask, score_type tipo = HARRIS_STEPHENS)
 			{
 				output.at<float>(j,i) = 0.0f;	
 			}
-			
 		}
 	}
 
-	/// Visualizar
-	//	Mat harris_matrix = Mat::zeros(img.rows*2, img.cols*2,CV_32F);
-	//	
-	//	Rect roi_dx_2 = Rect(0,0,size_img.width,size_img.height);
-	//	Rect roi_dy_2 = Rect(size_img.width,size_img.height,size_img.width,size_img.height);
-	//	Rect roi_dy_dx = Rect(0,size_img.height,size_img.width,size_img.height);
-	//	Rect roi_dx_dy = Rect(size_img.width,0,size_img.width,size_img.height);
-	//	
-	//	
-	//	iDx2.copyTo(harris_matrix(roi_dx_2));
-	//	iDy2.copyTo(harris_matrix(roi_dy_2));
-	//	iDxDy.copyTo(harris_matrix(roi_dy_dx));
-	//	iDxDy.copyTo(harris_matrix(roi_dx_dy));
-	//	imshow("Harris", harris_matrix);		
-	//	waitKey(0);
-	
 	return output;
 }
 
 ///----------------------------------------------------------------------------
-vector<Point2i> filter_features(Mat corner_score, int cantidad_features = 500){
+// NOTA: CAMBIAR LIMITE DE FEATURES POR THRESHOLD!... REVISAR COMO CONTROLAR LIMITES PARA LAS FEATURES...
+
+///
+vector<Point2i> filter_features(Mat corner_score, int limite_features = 500, int feature_dist = 0)
+{
 	///Ordering
 	
 	Mat bin = Mat::zeros(corner_score.size(),CV_8UC1);
@@ -251,50 +245,42 @@ vector<Point2i> filter_features(Mat corner_score, int cantidad_features = 500){
 	vector<Point2i> features;
 	vector<float> score;
 	
-	int i, j, k, l, c;
-	int num_f = 1;
-	int thresh = 10;
+	Point2f position;
+	float corner;
+	int num_f;
+	
+	int i, j, k, l, c;	// constantes basura, solo para los FOR
 	for( i=0;i<corner_score.size().width;i++) 
 	{
 		for( j=0;j<corner_score.size().height;j++) 
 		{
-			float corner = corner_score.at<float>(j,i);
-			Point2f position(i,j);
-//			for( k=0;k<num_f;k++) 
-//			{		
-//				if(corner > score[k])
-//				{
-//					
-//					for(l=num_f-1;l>k;l--) 
-//					{
-//						features[l] = features[l-1];
-//						score[l] = score[l-1];
-//					}
-//					
-//					score[k] = corner;
-//					features[k] = position;
-//					break;	
-//				}
-//			}
+			corner = corner_score.at<float>(j,i);
+			position.x = i;
+			position.y = j;
 			
+			// Si no hay elementos en l arreglo, agrego y continuo0
 			if(features.empty())
 			{
 				features.push_back(position);
 				score.push_back(corner);
 			}
-			else{
+			else
+			{
 				num_f = features.size();
 				for( k=0;k<num_f;k++) 
 				{
+					// Si el arreglo no llego al limite, agregar el valor y cortar
+					if(num_f<limite_features)
+					{
+						features.push_back(features[num_f-1]);
+						score.push_back(score[num_f-1]);
+						break;
+					}
+	
+					// Si el puntaje es mas grande que alguno en el arreglo lo agrego donde corresponde
+					// obtengo al final 2 arreglos confeatures ordenadas de mayor puntaje a menor
 					if(corner > score[k])
 					{
-						// Si todavia no tengo la cantidad deseada, agrego uno al arreglo (repito el ultimo)
-						if(num_f<cantidad_features)
-						{
-							features.push_back(features[num_f-1]);
-							score.push_back(score[num_f-1]);
-						}
-						
 						// Muevo todo el arreglo para no perder valores y poder ubicar el nuevo valor
 						for(l=num_f-1;l>k;l--) 
 						{
@@ -310,53 +296,43 @@ vector<Point2i> filter_features(Mat corner_score, int cantidad_features = 500){
 					}
 				}
 			}
-			
 		}
 	}
 	
-//		Eliminar similares
-	for( k=0;k<cantidad_features;k++) 
+//	Eliminar similares
+	for( k=0;k<limite_features;k++) 
 	{
-		for( int l=0;l<cantidad_features;l++) 
+		for( l=k+1;l<limite_features;l++) 
 		{
-			if(norm(features[k]-features[l])<thresh && k!=l)
+	
+			// Revisar que alguna de las features en el arreglo no este muy cerca
+			// de ser asi se ponderan sus posiciones.
+			// Esto se hace con el fin de mejorar la distribucion y quitar similares
+			if(norm(features[k]-features[l])<feature_dist)
 			{
-				if (score[k]<score[l])
+				
+				features[k] = (features[k]+features[l])/2;
+				
+				for( c=l;c<limite_features-1;c++) 
 				{
-					for(int c=k;c<cantidad_features-1;c++) 
-					{
-						features[c] = features[c+1];
-						score[c] = score[c+1];
-					}
-					k--;
+					features[c] = features[c+1];
+					score[c] = score[c+1];
 				}
-				else
-				{	
-					for(int c=l;c<cantidad_features-1;c++) 
-					{
-						features[c] = features[c+1];
-						score[c] = score[c+1];
-					}
-					l--;
-				}
+				l--;
 				
-				features[cantidad_features-1] = Point2f(0,0);
-				score[cantidad_features-1] = 0;
+				features.pop_back();
+				score.pop_back();
 				
-				cantidad_features--;
+				limite_features--;
 			}
 		}
 	}	
-
-	cout<<cantidad_features<<endl;
 	
 	return features;
 }
 
-///----------------------------------------------------------------------------
-
-
-Mat checkb_mask = (Mat_<float>(11,11) <<  
+///-----------------------------------------------------------------------------
+const Mat checkb_mask = (Mat_<float>(11,11) <<  
 				   1.0f, 1.0f, 1.0f, 1.0f,0.0f,0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
 				   1.0f, 1.0f, 1.0f, 1.0f,0.0f,0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
 				   1.0f, 1.0f, 1.0f, 1.0f,0.0f,0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -372,7 +348,7 @@ Mat checkb_mask = (Mat_<float>(11,11) <<
 				   0.0f, 0.0f, 0.0f, 0.0f,0.0f,0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f
 				   );
 
-Mat checkb_mask_ops = (Mat_<float>(11,11) <<  
+const Mat checkb_mask_ops = (Mat_<float>(11,11) <<  
 					
 				   0.0f, 0.0f, 0.0f, 0.0f,0.0f,0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 				   0.0f, 0.0f, 0.0f, 0.0f,0.0f,0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
@@ -390,7 +366,9 @@ Mat checkb_mask_ops = (Mat_<float>(11,11) <<
 				   
 				   );
 
-///Radianes o Angulos?
+///-----------------------------------------------------------------------------
+///
+///Laburar en Radianes
 Mat rotate_mask(Mat mask, double angle)
 {
 	Size s = mask.size();
@@ -399,14 +377,14 @@ Mat rotate_mask(Mat mask, double angle)
 	
 	Mat R(2,3,CV_32F);
 	
-	R.at<float>(0,0) = cos(angle*180.0f/PI);
-	R.at<float>(1,0) = -sin(angle*180.0f/PI);
+	R.at<float>(0,0) = cos(angle*PI/180.0f);
+	R.at<float>(1,0) = -sin(angle*PI/180.0f);
 
-	R.at<float>(0,1) = sin(angle*180.0f/PI);
-	R.at<float>(1,1) = cos(angle*180.0f/PI);
+	R.at<float>(0,1) = sin(angle*PI/180.0f);
+	R.at<float>(1,1) = cos(angle*PI/180.0f);
 
-	R.at<float>(0,2) = (1-cos(angle*180.0f/PI))*center.x - sin(angle*180.0f/PI)* center.y;
-	R.at<float>(1,2) = sin(angle*180.0f/PI)*center.x + (1-cos(angle*180.0f/PI))* center.y;
+	R.at<float>(0,2) = (1-cos(angle*PI/180.0f))*center.x - sin(angle*PI/180.0f)* center.y;
+	R.at<float>(1,2) = sin(angle*PI/180.0f)*center.x + (1-cos(angle*PI/180.0f))* center.y;
 	
 	Mat output;
 	warpAffine(mask,output,R,s);
@@ -414,42 +392,114 @@ Mat rotate_mask(Mat mask, double angle)
 	return output;
 }
 
-///UNA CAGADA, DEJA DE BOLUDEAR CON PUNTEROS ASI CAGAS MEMORIA Y ES MAS DIFICIL
-//img en GRAYSCALE
-// Cambiar b_tree por quadtree, arreglarselas despues con los Score, los duplicados joden mas  y son mas complicados.
-void checkboard_features(Mat img,b_tree features_tree, Point2f* features, int maxcant)
+///
+vector<Point2i> chessboard_features(Mat img,Size grid_features, Mat mask)
 {
-	
+	Mat gris, feature, r1, r2;
+	Mat diff;
+	Mat msk1, msk2;
 	Point2i center;
-	Mat region, reg_result;
-	int angle;
-	Scalar measure;
-	for(int i=0;i<maxcant;i++) 
+	vector<Point2i> features;
+	
+	double angle, best_angle, minVal, maxVal, const_thresh = 0.70 ;
+	int cant_features, best_features = 0;
+	
+	cvtColor(img,gris,CV_BGR2GRAY);
+//	if(mask.empty())
+//	{
+		feature = harris_corner_score(gris,mask);
+//	}
+//	else
+//	{
+//		feature = harris_corner_score(gris);
+//	}
+	
+	features = filter_features(feature, 500, 10);
+	
+	angle=0.0f;
+//	Scalar media_global = mean(gris);
+	
+	threshold(gris,gris,mean(gris).val[0],255,CV_THRESH_BINARY);
+	while(angle<360.0f)
+	{
+		msk1 = rotate_mask(checkb_mask,angle);
+		msk2 = rotate_mask(checkb_mask_ops,angle);
+		
+		filter2D(gris,r1,CV_32FC1,msk1);
+		filter2D(gris,r2,CV_32FC1,msk2);
+		
+		minMaxLoc(r1, &minVal, &maxVal);
+		
+		r1 = r1 + abs(minVal);
+		r1 = r1 / (abs(minVal)+maxVal);
+
+		minMaxLoc(r2, &minVal, &maxVal);
+		
+		r2 = r2 + abs(minVal);
+		r2 = r2 / (abs(minVal)+maxVal);
+		
+		diff = r1-r2;
+		diff = abs(diff);
+
+		threshold(diff,diff,const_thresh,1.0f,CV_THRESH_BINARY);
+
+		cant_features = 0;
+		for(int i=0;i<features.size();i++) 
+		{
+			center = features[i];
+			
+			if(diff.at<float>(center.y,center.x) == 1.0f)
+			{
+				cant_features++;
+			}
+			
+		}
+		
+		if(cant_features > best_features){
+			best_angle = angle;
+			best_features = cant_features;
+		}
+		
+		angle+=10.0f;
+		
+	}
+	
+	msk1 = rotate_mask(checkb_mask,angle);
+	msk2 = rotate_mask(checkb_mask_ops,angle);
+	
+	filter2D(gris,r1,CV_32FC1,msk1);
+	filter2D(gris,r2,CV_32FC1,msk2);
+	
+	minMaxLoc(r1, &minVal, &maxVal);
+	
+	r1 = r1 + abs(minVal);
+	r1 = r1 / (abs(minVal)+maxVal);
+	
+	minMaxLoc(r2, &minVal, &maxVal);
+	
+	r2 = r2 + abs(minVal);
+	r2 = r2 / (abs(minVal)+maxVal);
+	
+	diff = r1-r2;
+	diff = abs(diff);
+	
+	threshold(diff,diff,const_thresh,1.0f,CV_THRESH_BINARY);
+
+	cant_features = 0;
+	for(int i=0;i<features.size();i++) 
 	{
 		center = features[i];
-		region = Mat(img, Rect(center.x-4,center.y-4,9,9));
 		
-		angle=0.0f;
-		while(angle<360.0f)
+		if(diff.at<float>(center.y,center.x) != 1.0f)
 		{
-			rotate_mask(checkb_mask,angle);
-			
-			bitwise_xor(checkb_mask, region,reg_result);
-			
-			measure = mean(reg_result);
-			
-//			if(measure < /*some number a determinar*/)
-//			{
-				features_tree.erase(features[i]);
-//			}
-			
-			angle+=25.0f;
+			features[i] = features[features.size()-1];
+			features.pop_back();
+			i--;
 		}
 		
 	}
 	
-	
-	
+	return features;
 	
 }
 #endif
