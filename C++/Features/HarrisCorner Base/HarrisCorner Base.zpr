@@ -17,25 +17,11 @@ current_source=harris_corner.h
 path_char=\
 [source]
 path=main.cpp
-cursor=99:24
-breakpoint=49
-breakpoint_annotation=
-breakpoint=93
-breakpoint_annotation=
-breakpoint=104
-breakpoint_annotation=
-breakpoint=103
-breakpoint_annotation=
-breakpoint=112
-breakpoint_annotation=
-breakpoint=119
-breakpoint_annotation=
-breakpoint=121
-breakpoint_annotation=
+cursor=97:31
 open=true
 [header]
 path=harris_corner.h
-cursor=105:15
+cursor=576:18
 open=true
 [other]
 path=readme.txt
@@ -185,7 +171,13 @@ strip_executable=2
 console_program=1
 dont_generate_exe=0
 [inspections]
-expr=img
+expr=act_pos
+expr=pre_pos
+expr=post_pos
+expr=l
+expr=k
+expr=i
+expr=j
 [custom_tools]
 name_0=Referencia OpenCV
 command_0=${BROWSER} http://docs.opencv.org/index.html
