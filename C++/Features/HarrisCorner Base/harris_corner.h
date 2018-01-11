@@ -384,6 +384,20 @@ vector<Point2i> filter_features(Mat corner_score, int limite_features = 500, int
 	return features;
 }
 
+///
+Mat normalizar(Mat img_gris, double scale = 1)
+{
+	Mat normalizada = img_gris.clone();
+	double minVal, maxVal;
+	minMaxLoc(normalizada,&minVal,&maxVal);
+	normalizada = normalizada + abs(minVal);
+	normalizada = normalizada/(maxVal + abs(minVal));
+	
+	normalizada = normalizada*scale;
+	
+	return normalizada;
+}
+
 
 /// n_escalas = cantidad de ajustes (reduccion / scale_space) de resolucion 
 /// n_blur = cantidad de borroneos con distintos tamanios de gaussianas
@@ -396,7 +410,6 @@ vector<Point2f> sift_feature_detection(Mat img, int n_escalas, int n_blur)	/// M
 	
 	vector<vector<Mat>> scale_space(n_escalas);
 	
-	/// CORREGIR... EL RESAMPLE SE HACE CON LA ORIGINAL DEL NIVEL ANTERIOR BLURREADA...
 	Mat escala;
 	gris.copyTo(escala);
 	int mag_escala = 2, mag_desvio = 1;
@@ -498,14 +511,14 @@ vector<Point2f> sift_feature_detection(Mat img, int n_escalas, int n_blur)	/// M
 	}
 
 	
-//	for(int i=0;i<n_escalas;i++) 
-//	{
-//		for(int j=0;j<n_blur-3;j++) 
-//		{
-//			imshow("blur", keypoints[i][j]);
-//			waitKey(0);
-//		}
-//	}
+	for(int i=0;i<n_escalas;i++) 
+	{
+		for(int j=0;j<n_blur-3;j++) 
+		{
+			imshow("blur", keypoints[i][j]);
+			waitKey(0);
+		}
+	}
 	
 	
 	
@@ -525,13 +538,13 @@ vector<Point2f> sift_feature_detection(Mat img, int n_escalas, int n_blur)	/// M
 			minimo = keypoints[i][j].clone();
 			
 			
-			imshow("edge_mask", keypoints[i][j] > 0);
-			waitKey(0);
+//			imshow("edge_mask", keypoints[i][j] > 0);
+//			waitKey(0);
 			
 			threshold(keypoints[i][j],keypoints[i][j],7,255,3);	// 3 : THRESH TO ZERO			
 			
-			imshow("edge_mask", keypoints[i][j] > 0);
-			waitKey(0);
+//			imshow("edge_mask", keypoints[i][j] > 0);
+//			waitKey(0);
 			
 		}
 	}
@@ -539,66 +552,79 @@ vector<Point2f> sift_feature_detection(Mat img, int n_escalas, int n_blur)	/// M
 ///-----------------------------------------------------------------------------
 ///		Threshold Derivate -> para bordes
 ///-----------------------------------------------------------------------------
-	Mat float_image;
-	for(int i=0;i<n_escalas;i++) ///
-	{
-		for(int j=0;j<n_blur-3;j++) /// -1 para las DOG
-		{
-			
-			
-			imshow("edge_mask", keypoints[i][j] > 0);
-			waitKey(0);
-			
-			keypoints[i][j].convertTo(float_image,CV_32F,1.0f/255.0f);
-			
-			//Calculate Dx
-			filter2D(float_image, iDx,-1,dx,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
-			
-			//Calculate Dx^2
-			multiply(iDx, iDx,iDx2);
-			
-			//Calculate Dy
-			filter2D(float_image, iDy,-1,dy,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
-			
-			//Calculate Dy^2
-			multiply(iDy, iDy,iDy2);
-			
-			//Calculate DxDy
-			multiply(iDx, iDy,iDxDy);
-			
-			// Calculate the Determinant
-			multiply(iDxDy,iDxDy,iDxDy2);
-			multiply(iDx2,iDy2,det);	
-			subtract(det,iDxDy2,det);
-			
-			//Calculate the trace
-			add(iDx2,iDy2,trace);
-			
-			/// MAL REVISAR
-			multiply(trace,trace,trace);
-			divide(trace,det,edge_response);
-			
-			minMaxLoc(edge_response, &minVal, &maxVal);
-			cout<< minVal<<" "<<maxVal<<endl;
-			cout<< ((r+1)*(r+1))/r<<endl;
-			for(int l=0;l<edge_response.size().width;l++) 
-			{
-				for(int k=0;k<edge_response.size().height;k++)
-				{
-					///MAL REVISAR
-					if(edge_response.at<float>(k,l) > ((r+1)*(r+1))/r)
-					{
-						keypoints[i][j].at<unsigned char>(k,l) = 0;	
-					}
-				}
-			}
-			
-			imshow("edge_mask", edge_response > 0);
-			waitKey(0);
-		}
-	}	
-	
-	
+//	Mat float_image;
+//	for(int i=0;i<n_escalas;i++) ///
+//	{
+//		for(int j=0;j<n_blur-3;j++) /// -1 para las DOG
+//		{
+//			
+//			
+//			imshow("edge_mask", keypoints[i][j] > 0);
+//			waitKey(0);
+//			
+//			keypoints[i][j].convertTo(float_image,CV_32F,1.0f/255.0f);
+//			
+//			//Calculate Dx
+//			filter2D(float_image, iDx,-1,dx,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
+//			
+//			//Calculate Dx^2
+//			filter2D(iDx, iDx2,-1,dx,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
+//			
+//			//Calculate Dy
+//			filter2D(float_image, iDy,-1,dy,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
+//			
+//			//Calculate Dy^2
+//			filter2D(iDy, iDy2,-1,dy,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
+//			
+//			//Calculate DxDy
+//			filter2D(iDx, iDxDy,-1,dy,cv::Point(-1,-1), 0, cv::BORDER_CONSTANT);
+//			
+//			// Calculate the Determinant
+////			iDx2 = abs(iDx2);
+////			iDy2 = abs(iDy2);
+////			iDxDy = abs(iDxDy);
+//			pow(iDxDy,2,iDxDy2);
+//			multiply(iDx2,iDy2,det);	
+//			subtract(det,iDxDy2,det);
+//			
+//			//Calculate the trace
+//			add(iDx2,iDy2,trace);
+//
+//			/// MAL REVISAR
+////			det = abs(det);
+//			Mat trace2;
+//			pow(trace,2,trace2);
+//			divide(trace2,det,edge_response);
+//			
+//			
+////			edge_response = normalizar(edge_response);
+////			edge_response = abs(edge_response);
+////			imshow("edge_response", edge_response);
+////			waitKey(0);
+//			
+//			minMaxLoc(edge_response, &minVal, &maxVal);
+//			cout<< minVal<<" "<<maxVal<<endl;
+//			
+////			cout<< ((r+1)*(r+1))/r<<endl;
+//			for(int l=0;l<edge_response.size().width;l++) 
+//			{
+//				for(int k=0;k<edge_response.size().height;k++)
+//				{
+//					///MAL REVISAR
+//					if(edge_response.at<float>(k,l) > ((r+1)*(r+1))/r)
+//					{
+//						keypoints[i][j].at<unsigned char>(k,l) = 0;	
+//					}
+//				}
+//			}
+//			
+//			Mat test = normalizar(keypoints[i][j],255);
+//			imshow("edge_mask", test);
+//			waitKey(0);
+//		}
+//	}	
+//	
+//	
 	
 ///-----------------------------------------------------------------------------
 ///
