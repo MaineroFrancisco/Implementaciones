@@ -75,6 +75,7 @@ Mat rotate_mask(Mat mask, double angle)
 }
 
 ///
+//vector<Vec4f> chessboard_features(Mat img,Size grid_features, vector<Vec2f> obj_position, Size size_nms, int thresh, Mat mask)
 vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, int thresh, Mat mask)
 {
 	Mat gris, feature, r1, r2;
@@ -82,6 +83,7 @@ vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, i
 	Mat msk1, msk2;
 	Point2f center;
 	vector<Point2f> features;
+	vector<Vec4f> chessboard_features;
 	
 	double angle, best_angle, minVal, maxVal, const_thresh = 0.70 ;
 	int cant_features, best_features = 0;
@@ -89,11 +91,11 @@ vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, i
 	cvtColor(img,gris,CV_BGR2GRAY);
 //	if(mask.empty())
 //	{
-		feature = harris_score_image(gris, size_nms, mask, HARRIS_NOBEL);
+	feature = harris_score_image(gris, size_nms, mask, HARRIS_NOBEL);
 //	}
 //	else
 //	{
-//		feature = harris_corner_score(gris);
+//		feature = harris_corner_score(gris,size_nms,HARRIS_NOBEL);
 //	}
 	
 	features = harris_threshold(feature, thresh);

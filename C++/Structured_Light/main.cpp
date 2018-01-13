@@ -34,8 +34,18 @@ int main(int argc, char** argv)
 	
 	///
 	Mat img = imread("D:\\Facultad\\Proyecto\\Fotos\\11012018\\cap_6.png",CV_LOAD_IMAGE_GRAYSCALE );
-	Mat harris = harris_score_image(img,Size(11,11),Mat::ones(img.size(),CV_8UC1)*255);
-	vector<Point2f> v = harris_threshold(harris,1);
+	
+	Mat mask = Mat::ones(480,640,CV_8UC1)*255;
+	for(int i=0;i<15;i++) 
+	{
+		for(int j=0;j<640;j++) 
+		{
+			mask.at<unsigned char>(i,j) = 0;
+		}
+	}
+	
+	Mat harris = harris_score_image(img,Size(11,11),mask,HARRIS_NOBEL);
+	vector<Point2f> v = harris_threshold(harris,20000);
 	
 	generate_descriptor(img, v);
 	

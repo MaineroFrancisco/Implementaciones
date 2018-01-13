@@ -150,7 +150,7 @@ Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRI
 		
 		break;
 	case SHI_TOMASI:
-		/// MAL!! CALCULAR EIGENVALORES NO COMPARAR DIRECTAMENTE.. forma la matrix de 2x2 y sacalos
+		
 		// Calcular el Determinante
 		multiply(iDxDy,iDxDy,iDxDy2);
 		multiply(iDx2,iDy2,det);	
@@ -194,10 +194,20 @@ Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRI
 		multiply(trace,k,trace);
 		subtract(det,trace,corner_score);	
 		
+//		//Eliminar negativas
+//		filtro = corner_score > 0;
+//		corner_score.copyTo(filtro,filtro);
+//		
+//		corner_score = filtro;
+//		minMaxLoc(corner_score,&minVal,&maxVal);
+//		cout<< minVal<<" "<< maxVal;
+//		
+//		imshow("filtrada", corner_score);
+//		waitKey(0);
 	}
 	
 	/// Non-Maximal Supression
-	/// CAMBIANDO EL SIZE DE LA VECINDAD FILTRO LAS FEATURES CERCANAD
+	/// CAMBIANDO EL SIZE DE LA VECINDAD FILTRO LAS FEATURES CERCANAS
 	for( int i = 0; i<size_img.width; i++)
 	{
 		for( int j = 0; j<size_img.height; j++)
@@ -225,10 +235,6 @@ Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRI
 	}
 	
 	///NORMALIZAR -> Rango final de la imagen: 0 a 1
-	
-//	minMaxLoc(output, &minVal, &maxVal);	
-//	output = output/maxVal;
-	
 	normalize(output,output,1,0,cv::NORM_MINMAX);
 	
 	return output;
@@ -239,14 +245,14 @@ Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRI
 /// DEFINIR PROFUNDIDAD DE BITS PARA FILTRAR, TRABAJAR TODO EN FLOTANTES? 
 vector<Point2f> harris_threshold(Mat corner_score, int thresh = 100)
 {
-	Mat filtrada;
+	Mat filtrada, sin_modificar = corner_score.clone();
 	Size corner_size = corner_score.size();
 	
 	vector<Point2f> features;
 	
-	corner_score.convertTo(corner_score, CV_16U,65535);
-	filtrada = corner_score > thresh;
-	
+	sin_modificar.convertTo(sin_modificar, CV_16U,65535);
+	filtrada = sin_modificar > thresh;	// imagen binaria (unsigned char 0 a 255)
+
 //	corner_score.convertTo(corner_score, CV_8U,255);
 //	threshold(corner_score,filtrada,thresh,255,0);	// 0: thresh binario
 	
@@ -261,14 +267,26 @@ vector<Point2f> harris_threshold(Mat corner_score, int thresh = 100)
 		}
 	}
 	
+	/// Falta definir una orientacion a las features - pasa a ser un Point3f
+	
 	return features;
 }
 
 ///-----------------------------------------------------------------------------
 
 //gris -> imagen grayscale;
+struct descriptor
+{
+	Point2f pos_feature;
+	float orientation;
+	
+//	vector<vector<float>> HOG(16,vector<float>(8));
+	vector<float> HOG(128);
+};
+
 void generate_descriptor(Mat gris, vector<Point2f> features)
 {
+	vector<descriptor> desc_f;
 	Mat iDx, iDy;
 	
 	gris.convertTo(gris, CV_32F);
@@ -304,14 +322,101 @@ void generate_descriptor(Mat gris, vector<Point2f> features)
 	// Calculate gradient magnitude and direction (in degrees)
 	cartToPolar(iDx, iDy, m, phi, 1); 
 	
-	minMaxLoc(phi, &minVal, &maxVal);	
-	phi = phi/maxVal;
+//	minMaxLoc(phi, &minVal, &maxVal);
+//	cout<<minVal<<" "<<maxVal<<endl;
+//	phi = phi/maxVal;
 	
 	imshow("magnitud",m);
 	imshow("fase",phi);
 	waitKey(0);
 	
-	///
+	/// Histogram of Oriented Gradients - HOG
+	// Caracteristicas - por feature: ventanas de 16x16, divididas en regiones de 4x4 para calcular HOG -> 16 regiones (4x4) de 8 bin cada una 
+	//				-> vector de 12 elementos para analizar todo -> las orientaciones deben ser relativas a la orientacion general de la feature
+	
+	Point2f centro_f;
+	Size grad_window(4,4);
+	Mat roi_p1,roi_p2,roi_p3,roi_p4, roi_m1,roi_m2,roi_m3,roi_m4;
+	
+	descriptor d;
+	
+	float pos, factor, in_pos;
+	vector<float> bin_8(8); // 0 a 360? o 0 a 180? 8 bins, tomo de 0 a 360, se pule despues, de a 45 grados.  
+	for(int i=0;i<features.size();i++)
+	{
+		// Ventana total de la feature (8 x 8)
+		centro_f = features[i];
+		centro_f.x = centro_f.x-8;
+		centro_f.y = centro_f.y-8;
+		
+		/// FALTA - PRIMERO ORIENTAR LA IMAGEN SEGUN LA ORIENTACION GENERAL DE LA FEATURE, ASI OBTENER LA ROI CORRECTAMENTE
+	
+		d.pos_feature.x = features[i].x;
+		d.pos_feature.y = features[i].y;
+		/// FALTA ORIENTACION
+		
+		for(int reg=0;reg<16;reg++) 
+		{
+			centro_f.x = centro_f.x + 4*(reg%4);
+			centro_f.y = centro_f.y + 4*(reg/4);
+			
+			/// ACA ME MUEVO EN LA REGION
+			// Subventanas de la feature, regiones para HOG (4 x 4)
+			// angulo
+			roi_p1 = phi(Rect(centro_f.x, centro_f.y, grad_window.width, grad_window.height));	// up left
+			//pendiente
+			roi_m1 = m(Rect(centro_f.x, centro_f.y, grad_window.width, grad_window.height));	// up left
+			
+			for(int j=0;j<4;j++) 
+			{
+				for(int k=0;k<4;k++) 
+				{
+					pos = roi_p1.at<float>(k,j)/45;
+					in_pos = modf(pos, &factor);
+					
+//					if(factor != 0.0f)
+//					{
+//						bin_8[in_pos] = roi_m1.at<float>(k,j)*(1-factor);
+//						if(in_pos < 7)
+//						{
+//							bin_8[in_pos + 1] = roi_m1.at<float>(k,j)*factor;
+//						}
+//						else
+//						{
+//							bin_8[0] = roi_m1.at<float>(k,j)*factor;
+//						}
+//					}
+//					else
+//					{
+//						bin_8[in_pos] = roi_m1.at<float>(k,j);
+//					}
+					
+					if(factor != 0.0f)
+					{
+						d.HOG[reg*8 + in_pos] = roi_m1.at<float>(k,j)*(1-factor);
+						if(in_pos < 7)
+						{
+							d.HOG[reg*8 + in_pos + 1] = roi_m1.at<float>(k,j)*factor;
+						}
+						else
+						{
+							d.HOG[reg*8] = roi_m1.at<float>(k,j)*factor;
+						}
+					}
+					else
+					{
+						d.HOG[reg*8] = roi_m1.at<float>(k,j);
+					}
+				}
+			}
+			
+			/// FALTA NORMALIZAR
+			
+//			d.HOG[reg].push_back(bin_8);
+		}	
+		
+	}
+	
 	
 }
 
