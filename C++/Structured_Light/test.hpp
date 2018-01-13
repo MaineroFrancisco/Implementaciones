@@ -6,7 +6,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-
+#include "chessboard.hpp"
 using namespace std;
 using namespace cv;
 
@@ -200,6 +200,82 @@ vector<Mat> load_pln()
 	load.push_back(temp);
 	
 	return load;
+	
+}
+
+/// PRUEBAS CON LAS DEMAS COSAS, TODO JUNTO...
+void prueba_chessboard(String path)
+{
+	Mat color, mask;
+	int img_cant = 5;	//La seteo yo nomas
+	
+	//////////////////////////////////////////////////////////////////
+	/// Cargar Imagenes desde archivo
+	vector<Mat> imagenes;
+	for(int i=0;i<img_cant;i++) 
+	{
+		ostringstream os;
+		os<< i;
+		Mat aux  =  imread(path+"cap_"+os.str()+".png",CV_LOAD_IMAGE_ANYCOLOR);
+		imagenes.push_back(aux);
+	}
+	
+	
+	
+	/// Mascara - Para quitar la propaganda del droidcam de las capturas
+	//	mask = Mat::ones(1944,2592,CV_8UC1)*255;
+	
+	mask = Mat::ones(480,640,CV_8UC1)*255;
+	for(int i=0;i<15;i++) 
+	{
+		for(int j=0;j<640;j++) 
+		{
+			mask.at<unsigned char>(i,j) = 0;
+		}
+	}
+	
+	///
+	imagenes[0].copyTo(color);
+	
+	namedWindow("imagen",1);
+	int val = 50, maximo = 200;
+	createTrackbar("Threshold","imagen",&val,maximo);
+	
+	vector<Point2f>features;
+	int pressed_key = 0, k=0, val2 = 0;
+	while(pressed_key != 27)
+	{
+		
+		imagenes[(k%img_cant)].copyTo(color);
+		
+		val = getTrackbarPos("Threshold","imagen");
+		
+		if(val2!=val){
+			features.clear();
+			features = chessboard_features(color, Size(7,7),Size(9,9),val, mask);
+			val2 = val;
+			cout<< "Cantidad de features: "<< features.size() << endl;
+		}
+		
+		for(int i =0; i< features.size(); i++)
+		{
+			circle(color,features[i],5,Scalar(0,255,0));
+		}
+		
+		imshow("imagen", color);
+		
+		pressed_key = waitKey(5);
+		if(pressed_key == 13)
+		{
+			features.clear();
+			val2=0;
+			k++;
+		}
+		
+	}
+	
+	waitKey(0);
+	//////////////////////////////////////////////////////////////////
 	
 }
 

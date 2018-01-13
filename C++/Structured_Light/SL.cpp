@@ -186,107 +186,6 @@ Compute the shadow mask for the object to be captured.
 	It requires to do (or have already) 2 captures 
 */
 ///--------------------------------------------------------------------------------------------------------
-//////Mat SL::shadow_mask_filtering (VideoCapture cap, unsigned char thresh) 
-//////{
-//////	
-//////	Mat dark = Mat::zeros(proj_h,proj_w,CV_8UC1);
-//////	Mat light = Mat::ones(proj_h,proj_w,CV_8UC1)*255;
-//////	
-//////	Mat cap_dark, cap_light;
-//////	
-//////	namedWindow("Mask Capture",CV_WINDOW_NORMAL);
-//////	setWindowProperty("Mask Capture", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
-//////	
-//////	imshow("Mask Capture", dark);
-//////	
-//////
-//////	cap_dark = capture(cap,true);
-//////	
-//////	cvtColor(cap_dark,cap_dark,CV_BGR2GRAY, CV_8UC1);
-//////	
-//////	imshow("Mask Capture", light);
-//////	
-//////	cap_light = capture(cap);
-//////
-//////	cvtColor(cap_light,cap_light,CV_BGR2GRAY, CV_8UC1);
-//////	destroyWindow("Mask Capture");
-//////	
-//////	shadow_mask = cap_light - cap_dark;
-//////	
-//////	return shadow_mask;
-//////	
-//////}
-
-///
-
-//////Mat SL::shadow_mask_filtering (Mat light, Mat dark, unsigned char thresh)
-//////{
-//////	
-//////	shadow_mask = (light - dark)>thresh;
-//////		
-//////	return shadow_mask;
-//////	
-//////}
-
-///
-
-//////Mat SL::background_substraction (Mat after_placement, Mat before_placement, unsigned char thresh) 
-//////{
-//////	
-//////	background_mask = (after_placement - before_placement)>thresh;
-//////	
-//////	return background_mask;
-//////	
-//////}
-
-///
-
-//////Mat SL::background_substraction (VideoCapture cap, unsigned char thresh) 
-//////{
-//////	Mat after_placement, before_placement;
-//////	
-////////	cout<< "Mask Captures ..."<< endl;
-//////	
-//////	after_placement = capture(cap);
-//////	
-//////	before_placement = capture(cap);
-//////	
-//////	background_mask = (after_placement - before_placement)>thresh;
-//////	
-//////	return background_mask;
-//////	
-//////}
-
-///
-
-////////Mat SL::capture (VideoCapture cap, bool show) 
-////////{
-////////	
-////////	if(show)
-////////		namedWindow("Captured Frame");
-////////	
-////////	unsigned char pressed_key = 0;
-////////	Mat capture;
-////////	
-////////	while(pressed_key != 27)
-////////	{
-////////		cap >> capture;
-////////		
-////////		if (show)
-////////			imshow("Captured Frame", capture);
-////////		
-////////		if(pressed_key == 10)
-////////			break;
-////////		
-////////		pressed_key = waitKey(5);
-////////	}
-////////	if (show)
-////////		destroyWindow("Captured Frame");
-////////	
-////////	return capture;
-////////}
-
-///
 
 //Mat SL::decode_captured_patterns (Mat black, Mat white, vector<Mat> row_cap, vector<Mat> col_cap, Mat mask) {
 Mat SL::decode_captured_patterns (vector<Mat> captures, Mat mask) {
@@ -436,9 +335,10 @@ Mat SL::decode_captured_patterns (vector<Mat> captures, Mat mask) {
 ///		Entrada: Lista de fotos de una sola camara
 ///--------------------------------------------------------------------------------------------------------
 
-Mat gauss_jordan(Mat img)
+Mat gauss_jordan(Mat input)
 {
-	int m = img.size().width;
+	Mat matriz = input.clone();		// para no alterar la matriz de entrada
+	int m = matriz.size().width;
 //	int n = img.size().height;
 	int n = m-1;
 	
@@ -452,25 +352,23 @@ Mat gauss_jordan(Mat img)
 	int i,j,k;
 	for(i=0;i<n-1;i++)        // partial pivoting (trucho, no quiero 0 en la diagonal nomas)
 	{
-		if(img.at<float>(i,i) == 0){
+		if(matriz.at<float>(i,i) == 0){
 			for(int k=i;k<n-1;k++)
 			{
 				
-				if(img.at<float>(k,i) != 0)
+				if(matriz.at<float>(k,i) != 0)
 				{
 					for(j=0;j<m;j++)
 					{
-						c=img.at<float>(i,j);
-						img.at<float>(i,j)=img.at<float>(k,j);
-						img.at<float>(k,j)=c;
+						c=matriz.at<float>(i,j);
+						matriz.at<float>(i,j) = matriz.at<float>(k,j);
+						matriz.at<float>(k,j) = c;
 					}
 					break;
 				}
 			}			
 		}
 	}
-	
-//	show_mat(img);
 	
 	//********* changing to upper triangular matrix*************//
 	//********* Forward elimination process**************//
@@ -479,29 +377,26 @@ Mat gauss_jordan(Mat img)
 		for(i=k;i<n-1;i++)
 		{
 			
-			c= (img.at<float>(i+1,k)/img.at<float>(k,k)) ;
+			c= (matriz.at<float>(i+1,k)/matriz.at<float>(k,k)) ;
 			
 			for(j=0;j<m;j++)
 			{
-				img.at<float>(i+1,j)-=c*img.at<float>(k,j);
+				matriz.at<float>(i+1,j)-=c*matriz.at<float>(k,j);
 			}
 		}
 	}
-//	show_mat(img);
-		
+	
 	//***************** Backward Substitution method****************//
 	
 	for(i=n-1;i>=0;i--)
 	{
 		c=0;
 		for(j=i+1;j<m;j++){
-			c=c+img.at<float>(i,j)*d.at<float>(0,j);
+			c=c+matriz.at<float>(i,j)*d.at<float>(0,j);
 		}
 		
-		d.at<float>(0,i)= -c/img.at<float>(i,i);
+		d.at<float>(0,i)= -c/matriz.at<float>(i,i);
 	}
-	
-//	show_mat(d);
 	
 	return d;
 }
@@ -552,13 +447,13 @@ Mat estimate_homography(Mat img)
 	int N = img.size().height;
 
 	// Nx3 por la coordenada homogenea
-	Mat p_real(N,3,CV_32FC1), pict(N,3,CV_32FC1);
+	Mat p_real(N,3,CV_32FC1), foto(N,3,CV_32FC1);
 	
 	for(int i=0;i<N;i++) 
 	{
-		pict.at<float>(i,0) = img.at<float>(i,0);
-		pict.at<float>(i,1) = img.at<float>(i,1);
-		pict.at<float>(i,2) = 1.0f;
+		foto.at<float>(i,0) = img.at<float>(i,0);
+		foto.at<float>(i,1) = img.at<float>(i,1);
+		foto.at<float>(i,2) = 1.0f;
 		
 		p_real.at<float>(i,0) = img.at<float>(i,2);
 		p_real.at<float>(i,1) = img.at<float>(i,3);
@@ -566,7 +461,7 @@ Mat estimate_homography(Mat img)
 	}
 	
 	Mat Na = get_norm_matrix(p_real);
-	Mat Nb = get_norm_matrix(pict);	
+	Mat Nb = get_norm_matrix(foto);	
 	
 	Mat M = Mat::zeros(2*N,9,CV_32FC1);
 	Mat aux, aux2, a, b;
@@ -578,7 +473,7 @@ Mat estimate_homography(Mat img)
 		k = 2*i;
 		
 		transpose(p_real.row(i),aux);
-		transpose(pict.row(i),aux2);
+		transpose(foto.row(i),aux2);
 		
 		a = Na * aux;
 		b = Nb * aux2;
@@ -626,7 +521,7 @@ Mat estimate_homography(Mat img)
 	return H;
 }
 
-Mat vij(Mat H, int i , int j)
+Mat vij(Mat H, int i , int j)	/// matriz qu enac de la ortogonalidad de la matriz de rotacion, me permite descomponer el producto de la Homografia y la Inversa de los param_intrinsecos(incognitas) para elaborar un sistema de ecuaciones
 {
 	Mat v =( Mat_<float>(1,6) <<  
 			H.at<float>(0,i)*H.at<float>(0,j),
@@ -838,7 +733,6 @@ vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
 		t.copyTo(temp_img->col(3));
 		
 //		Mat p = I*E;
-		
 //		cout<<"E: "<<endl; show_mat(*temp_img);  cout<<endl;
 		
 		P.push_back(*temp_img);

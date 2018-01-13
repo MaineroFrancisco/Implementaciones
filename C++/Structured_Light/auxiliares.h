@@ -978,15 +978,19 @@ void interseccion_prueba()
 	draw_sys_coord(Em2,window);
 	
 	/// Draw Point cloud
+	Mat cloud = Mat(pc);
 	
-	for(int i=0;i<pc.size();i++) 
-	{
-		ostringstream os;
-		os<<i;
-		viz::WSphere p( pc[i], 0.05f );	
-		window.showWidget("P_"+os.str(), p);
-	}	
+	viz::WCloud nube(cloud);
+	window.showWidget("cloud",nube);
 	
+//	for(int i=0;i<pc.size();i++) 
+//	{
+//		ostringstream os;
+//		os<<i;
+//		viz::WSphere p( pc[i], 0.05f );	
+//		window.showWidget("P_"+os.str(), p);
+//	}	
+//	
 	window.spin();
 	
 	cout<<"Visualizacion 3D... Terminado"<<endl<<endl;	
@@ -1373,6 +1377,28 @@ void load_images(string path_calib, string path_img, string mask_path)
 	
 }
 
-
+///
+void save_images(string path, VideoCapture c1, int start = 0)
+{
+	unsigned char pressed_key =0;
+	int i = start;
+	
+	Mat f1;
+	
+	while(pressed_key != 27 )
+	{
+		c1>>f1;
+		imshow("Camara 1", f1);
+		
+		if(pressed_key == 13) //Enter
+		{
+			save_capture(f1,path,i);
+			i++;
+		}
+		
+		pressed_key = waitKey(5);
+	}
+	
+}
 
 #endif
