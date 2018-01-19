@@ -75,7 +75,12 @@ Mat rotate_mask(Mat mask, double angle)
 }
 
 ///
-//vector<Vec4f> chessboard_features(Mat img,Size grid_features, vector<Vec2f> obj_position, Size size_nms, int thresh, Mat mask)
+//		4*1
+//vector<Mat> chessboard_features(Mat img,Size grid_features, vector<Vec2f> obj_position, Size size_nms, int thresh, Mat mask)
+///FALTA! -> AJUSTAR EL THRESHOLD DINAMICO HASTA ENCONTRAR LA CANTIDAD DE PUNTOS DE LA CHESSBOARD O LOS MAS POSIBLES (POSIBLEMENTE DEDUCIR EL RESTO
+///		  -> RELACIONAR CON LOS PUNTOS DE REFERENCIA REALES	(PASADOS COMO PARAMETRO)
+///		  -> PROBAR USARLA PARA CALIBRAR 1 CAMARA RESPECTA A LA CHESSBOARD PRIMERO, LUEGO 2 CAMARAS RESPECTO A LA CHESSBOARD VISTA AL MISMO TIEMPO,
+///				Y FINALMENTE CALIBRAR SOLO PARAMETROS INTERNOS Y DEDUCIR LA POSICION DE LA CAMARAS RELATIVAS ENTRE SI (REQUIERE UNION CON FEATURES MAS COMPLEJA)
 vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, int thresh, Mat mask)
 {
 	Mat gris, feature, r1, r2;
@@ -91,14 +96,38 @@ vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, i
 	cvtColor(img,gris,CV_BGR2GRAY);
 //	if(mask.empty())
 //	{
-	feature = harris_score_image(gris, size_nms, mask, HARRIS_NOBEL);
+	feature = harris_score_image(gris, size_nms, mask, SHI_TOMASI);
 //	}
 //	else
 //	{
 //		feature = harris_corner_score(gris,size_nms,HARRIS_NOBEL);
 //	}
 	
-	features = harris_threshold(feature, thresh);
+//	features = harris_threshold(feature, thresh);
+	
+	///
+//	vector<Point2f> features;
+//	
+	normalize(feature,feature,255.0f,0.0f,cv::NORM_MINMAX);
+	Mat filtrada = feature > thresh;	// imagen binaria (unsigned char 0 a 255)
+	
+	//	corner_score.convertTo(corner_score, CV_8U,255);
+	//	threshold(corner_score,filtrada,thresh,255,0);	// 0: thresh binario
+	
+	for(int i=0;i<feature.cols;i++) 
+	{
+		for(int j=0;j<feature.rows;j++) 
+		{
+			if(filtrada.at<unsigned char>(j,i) != 0)
+			{
+				features.push_back(Point2f(i,j));
+			}
+		}
+	}
+	
+	///
+	
+	
 	angle=0.0f;
 //	Scalar media_global = mean(gris);
 	

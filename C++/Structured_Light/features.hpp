@@ -3,6 +3,7 @@
 #include "opencv2/highgui/highgui.hpp"
 
 #include <iostream>
+#include "auxiliares.h"
 using namespace std;
 using namespace cv;
 ///-------------------------------------------------------------------------
@@ -10,6 +11,19 @@ using namespace cv;
 
 /// el tamanio necesita variar si voy a jugar Con multiples resoluciones de una misma foto, completar todo primero luego probar
 /// Probar otras mascaras (Ej.: Sobel) 
+
+/// SOBEL
+// Dx
+const Mat dx = (Mat_<float>(3, 3) << -1.0f, 0.0f, 1.0f,
+				-2.0f,  0.0f,  2.0f,
+				-1.0f,  0.0f,  1.0f);
+
+//Dy
+const Mat dy = (Mat_<float>(3, 3) << -1.0f, -2.0f, -1.0f,
+				0.0f,  0.0f,  0.0f,
+				1.0f,  2.0f,  1.0f);
+
+///// PREWIT
 //// Dx
 //const Mat dx = (Mat_<float>(3, 3) << -1.0f, 0.0f, 1.0f,
 //				-1.0f,  0.0f,  1.0f,
@@ -20,10 +34,11 @@ using namespace cv;
 //				0.0f,  0.0f,  0.0f,
 //				1.0f,  1.0f,  1.0f);
 
-// Dx
-const Mat dx = (Mat_<float>(1, 3) << -1.0f, 0.0f, 1.0f);
-//Dy
-const Mat dy = (Mat_<float>(3, 1) << -1.0f, 0.0f, 1.0f);
+/// NORMAL
+//// Dx
+//const Mat dx = (Mat_<float>(1, 3) << -1.0f, 0.0f, 1.0f);
+////Dy
+//const Mat dy = (Mat_<float>(3, 1) << -1.0f, 0.0f, 1.0f);
 
 ///-------------------------------------------------------------------------
 
@@ -78,7 +93,9 @@ Mat format_roi(Mat img, Size vecindad, int x, int y )
 	return img(Rect(pos_x,pos_y,nms_width,nms_height));
 }
 
-
+///-----------------------------------------------------------------------------
+/// Feature Detection
+///-----------------------------------------------------------------------------
 
 /// vecindad -> para plicar non-maximal supression
 Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRIS_STEPHENS)
@@ -208,6 +225,7 @@ Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRI
 	
 	/// Non-Maximal Supression
 	/// CAMBIANDO EL SIZE DE LA VECINDAD FILTRO LAS FEATURES CERCANAS
+	
 	for( int i = 0; i<size_img.width; i++)
 	{
 		for( int j = 0; j<size_img.height; j++)
@@ -243,6 +261,7 @@ Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRI
 
 ///-----------------------------------------------------------------------------
 /// DEFINIR PROFUNDIDAD DE BITS PARA FILTRAR, TRABAJAR TODO EN FLOTANTES? 
+// DE LA ORIENTACION SE ENCARGA XCLUSIVAMENTE EL DESCRIPTOR... PUEDE HABER MAS DE UN DESCRIPTOR POR FEATURE
 vector<Point2f> harris_threshold(Mat corner_score, int thresh = 100)
 {
 	Mat filtrada, sin_modificar = corner_score.clone();
@@ -267,24 +286,27 @@ vector<Point2f> harris_threshold(Mat corner_score, int thresh = 100)
 		}
 	}
 	
-	/// Falta definir una orientacion a las features - pasa a ser un Point3f
+//	normalize(corner_score,corner_score,1,0,cv::NORM_MINMAX);
+//	show_mat(corner_score,IMAGEN,0);
+//	waitKey(0);
 	
 	return features;
 }
 
 ///-----------------------------------------------------------------------------
+/// Feature Descriptors
+///-----------------------------------------------------------------------------
 
-//gris -> imagen grayscale;
 struct descriptor
 {
 	Point2f pos_feature;
-	float orientation;
+	vector<float> orientation;
 	
-//	vector<vector<float>> HOG(16,vector<float>(8));
-	vector<float> HOG(128);
+	vector<Mat> HOG;	//Mat::zeros(128,1)
 };
 
-void generate_descriptor(Mat gris, vector<Point2f> features)
+//gris -> imagen grayscale;
+vector<descriptor> generate_descriptor(Mat gris, vector<Point2f> features)
 {
 	vector<descriptor> desc_f;
 	Mat iDx, iDy;
@@ -299,21 +321,10 @@ void generate_descriptor(Mat gris, vector<Point2f> features)
 	//Calculate Dy
 	filter2D(gris, iDy,-1,dy,cv::Point(-1,-1), 0, cv::BORDER_REPLICATE);
 	
-	iDx = abs(iDx);
-	iDy = abs(iDy);
-	
 	double minVal,maxVal;
-	minMaxLoc(iDx, &minVal, &maxVal);	
-	iDx = iDx/maxVal;
-	minMaxLoc(iDy, &minVal, &maxVal);	
-	iDy = iDy/maxVal;
-	
-//	imshow("Dx",iDx);
-//	imshow("Dy",iDy);
-//	waitKey(0);
-	
-//	double desvio = 1.5f;
-//	
+
+//	double desvio = 1.6f;
+//
 //	GaussianBlur(iDx,iDx,Size(),desvio,desvio);
 //	GaussianBlur(iDy,iDy,Size(),desvio,desvio);
 	
@@ -322,103 +333,299 @@ void generate_descriptor(Mat gris, vector<Point2f> features)
 	// Calculate gradient magnitude and direction (in degrees)
 	cartToPolar(iDx, iDy, m, phi, 1); 
 	
-//	minMaxLoc(phi, &minVal, &maxVal);
-//	cout<<minVal<<" "<<maxVal<<endl;
-//	phi = phi/maxVal;
-	
-	imshow("magnitud",m);
-	imshow("fase",phi);
-	waitKey(0);
-	
 	/// Histogram of Oriented Gradients - HOG
 	// Caracteristicas - por feature: ventanas de 16x16, divididas en regiones de 4x4 para calcular HOG -> 16 regiones (4x4) de 8 bin cada una 
 	//				-> vector de 12 elementos para analizar todo -> las orientaciones deben ser relativas a la orientacion general de la feature
 	
 	Point2f centro_f;
-	Size grad_window(4,4);
-	Mat roi_p1,roi_p2,roi_p3,roi_p4, roi_m1,roi_m2,roi_m3,roi_m4;
+	Size grad_window(4,4);		// tamanio subregion HOG para las features
+	Mat hog_p, hog_m;
 	
-	descriptor d;
+	vector<descriptor> features_descrp;
+	descriptor temp;
+	Mat f_pendiente, f_orient, f_hist = Mat::zeros(36,1,CV_32F), d_hist;
 	
-	float pos, factor, in_pos;
-	vector<float> bin_8(8); // 0 a 360? o 0 a 180? 8 bins, tomo de 0 a 360, se pule despues, de a 45 grados.  
-	for(int i=0;i<features.size();i++)
+	// 0 a 360? o 0 a 180? 8 bins, tomo de 0 a 360, se pule despues, de a 45 grados.  
+	float pos, factor, in_pos, h_1, h, h_m1, orientation;
+	
+	Mat gauss_x, gauss_y, gauss;
+	///Aplico gaussiana a las pendientes, para reducir la contribuccion de pixeles lejanos a las features
+	gauss_y = getGaussianKernel(9, 1.6f, CV_32F );
+	transpose(gauss_y,gauss_x);
+	
+	gauss = gauss_y*gauss_x;
+	normalize(gauss,gauss,1,0,cv::NORM_MINMAX);
+	
+	for(int f=0;f<features.size();f++)
 	{
-		// Ventana total de la feature (8 x 8)
-		centro_f = features[i];
-		centro_f.x = centro_f.x-8;
-		centro_f.y = centro_f.y-8;
 		
-		/// FALTA - PRIMERO ORIENTAR LA IMAGEN SEGUN LA ORIENTACION GENERAL DE LA FEATURE, ASI OBTENER LA ROI CORRECTAMENTE
-	
-		d.pos_feature.x = features[i].x;
-		d.pos_feature.y = features[i].y;
-		/// FALTA ORIENTACION
+		/// CALCULAR ORIENTACION DE LA FEATURE
+		/// DOS ENFOQUES PARA ENCONTRAR LA ORIENTACION DE LA FEATURE:
+		///			ANALISIS DEL HISTOGRAMA (HECHO)
+		///			EXTRACCION DE EIGENVECTORES DE LA MATRIZ DE HARRIS (PROBAR)
 		
-		for(int reg=0;reg<16;reg++) 
+		/// Controles de tamanio para las ventanas
+		if((features[f].x-8)<0 || (features[f].x+8)>gris.cols || (features[f].y-8)<0 || (features[f].y+8)>gris.rows )
 		{
-			centro_f.x = centro_f.x + 4*(reg%4);
-			centro_f.y = centro_f.y + 4*(reg/4);
-			
-			/// ACA ME MUEVO EN LA REGION
-			// Subventanas de la feature, regiones para HOG (4 x 4)
-			// angulo
-			roi_p1 = phi(Rect(centro_f.x, centro_f.y, grad_window.width, grad_window.height));	// up left
-			//pendiente
-			roi_m1 = m(Rect(centro_f.x, centro_f.y, grad_window.width, grad_window.height));	// up left
-			
-			for(int j=0;j<4;j++) 
-			{
-				for(int k=0;k<4;k++) 
+			continue;
+		}
+		
+		// ventana orientacion general ( 9 x 9 )
+		// ventana mas chica centrada en al feature, histograma de gradientes a toda la region, normalizar, tomar los valores mas alto como orientacion para descriptores ( puede salir mas de 1 )
+		f_pendiente = m(Rect(features[f].x-5,features[f].y-5,9,9)).clone();
+		f_orient = phi(Rect(features[f].x-5,features[f].y-5,9,9)).clone();
+		
+		multiply(f_pendiente,gauss,f_pendiente);
+		
+		// Histograma
+		// n_bin para el histograma general:  36, mas preciso.
+		for(int i=0;i<9;i++) 
+		{
+			for(int j=0;j<9;j++) 
+			{  
+				pos = f_orient.at<float>(j,i)/10.0f;	// Deduzco posicion dentro del histograma segun su orientacion (angulo)
+				factor = modf(pos, &in_pos);		// La descompongo en parte entera y parte decimal
+				
+				if(factor > 0.05f)		// reviso si existe efectivamente parte decimal, threshold de 0.01 por las dudas, evitar problemas de exactitud
 				{
-					pos = roi_p1.at<float>(k,j)/45;
-					in_pos = modf(pos, &factor);
-					
-//					if(factor != 0.0f)
-//					{
-//						bin_8[in_pos] = roi_m1.at<float>(k,j)*(1-factor);
-//						if(in_pos < 7)
-//						{
-//							bin_8[in_pos + 1] = roi_m1.at<float>(k,j)*factor;
-//						}
-//						else
-//						{
-//							bin_8[0] = roi_m1.at<float>(k,j)*factor;
-//						}
-//					}
-//					else
-//					{
-//						bin_8[in_pos] = roi_m1.at<float>(k,j);
-//					}
-					
-					if(factor != 0.0f)
+					// De existir parte decimal descompongo la contribucion de la pendiente de ese punto al histograma segun la diferencia para las dos columnas a las que pertenesca
+					f_hist.at<float>(in_pos) += f_pendiente.at<float>(j,i)*(1-factor);			///Esto falla si hay angulos negativos, no deberia, cartToPolar devuelve el angulo entre 0 a 360
+					if(in_pos < 35)
 					{
-						d.HOG[reg*8 + in_pos] = roi_m1.at<float>(k,j)*(1-factor);
-						if(in_pos < 7)
-						{
-							d.HOG[reg*8 + in_pos + 1] = roi_m1.at<float>(k,j)*factor;
-						}
-						else
-						{
-							d.HOG[reg*8] = roi_m1.at<float>(k,j)*factor;
-						}
+						f_hist.at<float>( in_pos+1 ) += f_pendiente.at<float>(j,i)*factor;
 					}
 					else
 					{
-						d.HOG[reg*8] = roi_m1.at<float>(k,j);
+						f_hist.at<float>(0) += f_pendiente.at<float>(j,i)*factor;
 					}
 				}
+				else
+				{
+					f_hist.at<float>(in_pos) += f_pendiente.at<float>(j,i);
+				}
+			}
+		}
+		
+		// Hallar maximo del histograma
+		float max = 0;
+		for(int i=0;i<36;i++) 
+		{
+			if(f_hist.at<float>(i)>max)
+			{
+				max = f_hist.at<float>(i);
+			}
+		}
+		
+		///Falta inicializar cosas
+		/// Construir descriptor 
+		temp.pos_feature = features[f];
+		
+//		///PLOT
+//		histograma(f_hist,36);
+//		waitKey(0);
+//		
+		// Suavizado del histograma? figuraba en la documentacion, no estoy seguro porque o como
+		
+		// Extraccion de direccion dominante
+		float t = 0.8f; // factor de referencia sobre el histograma
+		for(int i=1;i<36;i++) 
+		{
+			h_1 = f_hist.at<float>(i-1);
+			h = f_hist.at<float>(i);
+			if(i < 35)
+			{
+				h_m1 = f_hist.at<float>(i+1);
+			}
+			else
+			{
+				h_m1 = f_hist.at<float>(0);
 			}
 			
-			/// FALTA NORMALIZAR
-			
-//			d.HOG[reg].push_back(bin_8);
-		}	
+			/// PUEDE HABER MAS DE UN DESCRIPTOR POR FEATURE, PUEDE SER NECESARIO UN ID DE FEATURE, O SE PUEDE DEDUCIR DE LA POSICION
+			if(h > h_m1 && h > h_1 && h>t*max)	// los bins siguiente y anterior son mas chicos (es decir es un pico en el histograma), y su magnitud es t veces la maxima (threshold) -> es una orientacion valida para un descriptor 
+			{
+				/// Interpolar correcta orientacion -> Almacenada en grados
+				// (i*10) = angulo representado en el histograma,  (CV_PI/n_bins) -> factor de interpolacion (REVISAR DE DONDE SALE, APUNTE NO DICE),	resto -> interpolacion valores de pendiente acumulados en el histograma;
+				orientation = (i*10) + (CV_PI/36) * ((h_1 - h_m1) / (h_1 - 2*h + h_m1)) ;
+				temp.orientation.push_back(orientation);
+				
+				/// Definir HOG
+				// ORIENTAR LA IMAGEN SEGUN LA ORIENTACION GENERAL DE LA FEATURE, ASI OBTENER LA ROI CORRECTAMENTE
+				Mat rot_p, rot_m, m_rot;
+				
+				m_rot = getRotationMatrix2D(features[f], orientation, 1);
+				
+				warpAffine(phi, rot_p, m_rot,phi.size());
+				warpAffine(m, rot_m, m_rot, m.size());
+				
+				d_hist = Mat::zeros(16*8,1,CV_32F);
+				for(int reg=0;reg<16;reg++) 
+				{
+					// Ventana total de la feature (16 x 16)
+					centro_f = features[f];
+					centro_f.x = centro_f.x-8;
+					centro_f.y = centro_f.y-8;
+					
+					
+					centro_f.x = centro_f.x + 4*(reg%4);
+					centro_f.y = centro_f.y + 4*(reg/4);
+					
+					/// ACA ME MUEVO EN LA REGION
+					// Subventanas de la feature, regiones para HOG (4 x 4)
+					// angulo
+					hog_p = rot_p(Rect(centro_f.x, centro_f.y, grad_window.width, grad_window.height));
+					
+					for(int i=0;i<hog_p.cols;i++) 
+					{
+						for(int j=0;j<hog_p.rows;j++) 
+						{
+							hog_p.at<float>(j,i) -= orientation;
+							if(hog_p.at<float>(j,i)<0)
+							{
+								hog_p.at<float>(j,i) += 360;
+							}
+						}
+					}
+					
+					//pendiente
+					hog_m = rot_m(Rect(centro_f.x, centro_f.y, grad_window.width, grad_window.height));
+					
+					for(int j=0;j<4;j++) 
+					{
+						for(int k=0;k<4;k++) 
+						{
+							pos = hog_p.at<float>(k,j)/45.0f;
+							factor = modf(pos, &in_pos);
+							
+							if(factor > 0.05f)
+							{
+								d_hist.at<float>(reg*8 + in_pos) += hog_m.at<float>(k,j)*(1-factor);
+								if(in_pos < 7)
+								{
+									d_hist.at<float>(reg*8 + in_pos + 1) += hog_m.at<float>(k,j)*factor;
+								}
+								else
+								{
+									d_hist.at<float>(reg*8) += hog_m.at<float>(k,j)*factor;
+								}
+							}
+							else
+							{
+								d_hist.at<float>(reg*8 + in_pos) += hog_m.at<float>(k,j);
+							}
+						}
+					}
+				}
+				
+				/// NORMALIZAR PARA MATCHEAR DESPUES -> reduce problemas por iluminacion
+				normalize(d_hist,d_hist,1,0,cv::NORM_MINMAX);
+				
+				d_hist.convertTo(d_hist,CV_8UC1,255.0f);
+				temp.HOG.push_back(d_hist.clone());
+				
+//				/// PLOTEO
+//				show_hog(gris,temp.pos_feature,temp.orientation, temp.HOG[temp.HOG.size()-1]);
+//				waitKey(0);
+				
+				/// Almacenar descriptor
+			}
+		}
+		
+		features_descrp.push_back(temp);
+		
+		/// LIMPIAR VARIABLE AUXILIAR
+		temp.orientation.clear();
+		temp.HOG.clear();
+		
+		f_hist = Mat::zeros(36,1,CV_32F);
 		
 	}
 	
+	return features_descrp;
+}
+
+/// Matching Featurse
+
+/// PROBAR CON OTRAS COSAS, PUEDE SER QUE LAS IMAGENES DE POR SI SEAN MUY CHOTAS... REVISAR COMO DESCARTAR FEATURES ...
+vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2)
+{
+	Mat diff;
+	float mag;
+	vector<Mat> vm;	// Mat4f
+	
+	float min_dist, scd_min;
+	int prim_cerc = 0, seg_cerc = 0, pri_d_hist = 0, seg_d_hist = 0, pri_d2_hist = 0, seg_d2_hist = 0;
+	float absolute_thresh = 250;
+	float relative_thresh = 0.6;
+	
+	for(int i=0;i<d.size();i++) 
+	{
+		min_dist = FLT_MAX; scd_min = FLT_MAX;
+		for(int j=0;j<d2.size();j++) 
+		{
+			/// Buscar en d2, los dos mas proximos a d, limitado por thresholds
+			
+			for(int k=0;k<d[i].HOG.size();k++) 
+			{
+				for(int l=0;l<d2[j].HOG.size();l++) 
+				{
+					Mat b1 = Mat::zeros(130,1,CV_32F);
+//					b1.at<float>(0) = d[i].pos_feature.x/640.0f;
+//					b1.at<float>(1) = d[i].pos_feature.y/480.0f;
+					b1.at<float>(0) = d[i].pos_feature.x;
+					b1.at<float>(1) = d[i].pos_feature.y;
+					d[i].HOG[k].copyTo(b1(Rect(0,2,1,128)));
+////					show_mat(b1);
+////					
+					Mat b2 = Mat::zeros(130,1,CV_32F);
+//					b2.at<float>(0) = d2[j].pos_feature.x/640.0f;
+//					b2.at<float>(1) = d2[j].pos_feature.y/480.0f;
+					b2.at<float>(0) = d2[j].pos_feature.x;
+					b2.at<float>(1) = d2[j].pos_feature.y;
+					d2[j].HOG[l].copyTo(b2(Rect(0,2,1,128)));
+////					show_mat(b2);
+					
+					diff = b1 - b2;					
+//					diff = d[i].HOG[k] - d2[j].HOG[l];
+					mag = norm(diff);
+					
+					if(mag < min_dist)
+					{
+						scd_min = min_dist;
+						min_dist = mag;
+						prim_cerc = j;
+					}
+					else
+					{
+						if(mag < scd_min && mag!=min_dist)
+						{
+							scd_min = mag;
+						}
+					}
+				}	
+			}
+		}
+		
+//		cout<<"min_dst: "<< min_dist <<endl;
+//		cout<<"scd_min: "<< scd_min <<endl;
+//		cout<<"relative: "<< (min_dist/scd_min) <<endl;
+		if((min_dist/scd_min) < relative_thresh)
+		{			
+			Mat m(4,1,CV_32F);
+			m.at<float>(0) = d[i].pos_feature.x;
+			m.at<float>(1) = d[i].pos_feature.y;
+			m.at<float>(2) = d2[prim_cerc].pos_feature.x;
+			m.at<float>(3) = d2[prim_cerc].pos_feature.y;
+			vm.push_back(m.clone());
+		}
+
+	}
+
+	return vm;
 	
 }
+
+///
 
 void fourier(Mat I)
 {

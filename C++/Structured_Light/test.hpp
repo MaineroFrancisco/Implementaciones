@@ -203,11 +203,19 @@ vector<Mat> load_pln()
 	
 }
 
-/// PRUEBAS CON LAS DEMAS COSAS, TODO JUNTO...
+///-----------------------------------------------------------------------------
+///		TEST CHESSBOARD COMPLETO: OBTENER EN MULTIPLES CAPTURAS DE LA MISMA 
+///				CHESSBOARD LOS PUNTOS CORRESPONDIENTES, RELACIONADOS A LA 
+///				REFERENCIA EN EL MUNDO REAL
+///-----------------------------------------------------------------------------
+/// HACER PRUEBAS CON LAS DEMAS COSAS, TODO JUNTO...
 void prueba_chessboard(String path)
 {
 	Mat color, mask;
-	int img_cant = 5;	//La seteo yo nomas
+	int img_cant = 5;	//CANTIDAD DE IMAGENES, La seteo yo nomas
+	Size chess_size(7,7);	//cantiadd de puntos a encontrar en la tabla
+	Size gauss_size(11,11);	//paramaetro para la deteccion de los puntos claves y posterior filtrado, establece vecindades y espacio entre features
+	
 	
 	//////////////////////////////////////////////////////////////////
 	/// Cargar Imagenes desde archivo
@@ -219,8 +227,6 @@ void prueba_chessboard(String path)
 		Mat aux  =  imread(path+"cap_"+os.str()+".png",CV_LOAD_IMAGE_ANYCOLOR);
 		imagenes.push_back(aux);
 	}
-	
-	
 	
 	/// Mascara - Para quitar la propaganda del droidcam de las capturas
 	//	mask = Mat::ones(1944,2592,CV_8UC1)*255;
@@ -238,7 +244,7 @@ void prueba_chessboard(String path)
 	imagenes[0].copyTo(color);
 	
 	namedWindow("imagen",1);
-	int val = 50, maximo = 200;
+	int val = 50, maximo = 255;
 	createTrackbar("Threshold","imagen",&val,maximo);
 	
 	vector<Point2f>features;
@@ -252,7 +258,7 @@ void prueba_chessboard(String path)
 		
 		if(val2!=val){
 			features.clear();
-			features = chessboard_features(color, Size(7,7),Size(9,9),val, mask);
+			features = chessboard_features(color, chess_size,gauss_size,val, mask);
 			val2 = val;
 			cout<< "Cantidad de features: "<< features.size() << endl;
 		}
@@ -275,7 +281,111 @@ void prueba_chessboard(String path)
 	}
 	
 	waitKey(0);
-	//////////////////////////////////////////////////////////////////
+	
+}
+
+///-----------------------------------------------------------------------------
+/// 	TEST FEATURES COMPLETO: 	DETECCION -> DESCRIPCION -> MATCHING
+///-----------------------------------------------------------------------------
+void test_features_completo(Mat org, Mat org2)
+{
+	
+	Mat img, img2;
+	cvtColor(org, img, CV_BGR2GRAY);
+	cvtColor(org2, img2, CV_BGR2GRAY);
+	
+	//	Mat img = imread("D:\\Facultad\\Proyecto\\Fotos\\11012018\\cap_6.png",CV_LOAD_IMAGE_GRAYSCALE );
+	//	Mat img2 = imread("D:\\Facultad\\Proyecto\\Fotos\\11012018\\cap_5.png",CV_LOAD_IMAGE_GRAYSCALE );
+	//	Mat img = imread("C:\\Users\\Fran\\Desktop\\test_1.png",CV_LOAD_IMAGE_GRAYSCALE );
+	//	Mat img2 = imread("C:\\Users\\Fran\\Desktop\\test_2.png",CV_LOAD_IMAGE_GRAYSCALE );
+	
+	Mat mask = Mat::ones(480,640,CV_8UC1)*255;
+	for(int i=0;i<15;i++) 
+	{
+		for(int j=0;j<640;j++) 
+		{
+			mask.at<unsigned char>(i,j) = 0;
+		}
+	}
+	
+	cout<< "pre_score"<<endl;
+	Mat harris = harris_score_image(img,Size(11,11),mask,SHI_TOMASI);
+	Mat harris2 = harris_score_image(img2,Size(11,11),mask,SHI_TOMASI);
+	cout<< "post_score"<<endl;
+	
+	cout<< "pre_filter"<<endl;
+	//	vector<Point2f> v = harris_threshold(harris,20000);
+	//	vector<Point2f> v2 = harris_threshold(harris2,20000);
+	vector<Point2f> v = harris_threshold(harris,200);
+	vector<Point2f> v2 = harris_threshold(harris2,200);
+	cout<< "post_filter"<<endl;
+	cout<< "cant features: "<<v.size()<<" "<<v2.size()<<endl;
+	
+	cout<<endl;
+	cout<< "pre_descp"<<endl;
+	vector<descriptor> d = generate_descriptor(img, v);
+	vector<descriptor> d2 = generate_descriptor(img2, v2);
+	cout<< "post_descp"<<endl;
+	
+	cout<<endl;
+	cout<< "pre_match"<<endl;
+	vector<Mat> vm = feature_matching(d, d2);
+	cout<< "post_match"<<endl;
+	
+	
+	cout<<"VM: "<<vm.size()<<endl;
+	
+	Point2f p1, p2;
+	Mat final_img = Mat::zeros(org.rows,org.cols*2, CV_8UC3);
+	
+	cout<< "PLOT FINAL MATCHING"<<endl;
+	org.copyTo(final_img(Rect(0,0,org.cols,org.rows)));
+	org2.copyTo(final_img(Rect(org.cols,0,org2.cols,img.rows)));
+	
+	//	int pressed_key=0, i = 0;
+	//	Mat aux = final_img.clone();
+	//	while(pressed_key!=27)
+	//	{
+	//		
+	//		if(pressed_key == 13)
+	//		{
+	//			if(i> vm.size()-1){ i = 0;}
+	//			
+	//			aux = final_img.clone();
+	//			p1 = Point2f(vm[i].at<float>(0),vm[i].at<float>(1));
+	//			p2 = Point2f(vm[i].at<float>(2),vm[i].at<float>(3));
+	//			
+	////			circle(final_img ,p1,5, Scalar(0,255,0));
+	////			circle(final_img ,Point2f(org.cols,0) + p2,5, Scalar(0,255,0));
+	////			line(final_img ,p1, Point2f(org.cols,0 )+ p2,Scalar(0,255,0));
+	//			circle(aux ,p1,5, Scalar(0,255,0));
+	//			circle(aux ,Point2f(org.cols,0) + p2,5, Scalar(0,255,0));
+	//			line(aux ,p1, Point2f(org.cols,0 )+ p2,Scalar(0,255,0));
+	//			i++;
+	//		}
+	//		
+	////		imshow("test", final_img);
+	//		imshow("test", aux);
+	//		pressed_key = waitKey(5);
+	//	}
+	
+	Mat aux = final_img.clone();
+	for(int i=0;i<vm.size();i++) 
+	{
+		
+		p1 = Point2f(vm[i].at<float>(0),vm[i].at<float>(1));
+		p2 = Point2f(vm[i].at<float>(2),vm[i].at<float>(3));
+		
+		circle(final_img ,p1,5, Scalar(0,255,0));
+		circle(final_img ,Point2f(org.cols,0) + p2,5, Scalar(0,255,0));
+		line(final_img ,p1, Point2f(org.cols,0 )+ p2,Scalar(0,255,0));
+		
+	}
+	
+	imshow("test", final_img);
+	
+	cout<< "descrp: "<< d.size() << " "<< d2.size()<<endl;
+	cout<< "match: "<<vm.size()<<endl;
 	
 }
 
