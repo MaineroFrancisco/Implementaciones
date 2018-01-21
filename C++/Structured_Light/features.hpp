@@ -253,7 +253,7 @@ Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRI
 	}
 	
 	///NORMALIZAR -> Rango final de la imagen: 0 a 1
-	normalize(output,output,1,0,cv::NORM_MINMAX);
+	normalize(output,output,0,1,cv::NORM_MINMAX);
 	
 	return output;
 	
@@ -262,14 +262,15 @@ Mat harris_score_image(Mat img, Size vecindad, Mat mask, score_type tipo = HARRI
 ///-----------------------------------------------------------------------------
 /// DEFINIR PROFUNDIDAD DE BITS PARA FILTRAR, TRABAJAR TODO EN FLOTANTES? 
 // DE LA ORIENTACION SE ENCARGA XCLUSIVAMENTE EL DESCRIPTOR... PUEDE HABER MAS DE UN DESCRIPTOR POR FEATURE
-vector<Point2f> harris_threshold(Mat corner_score, int thresh = 100)
+vector<Point2f> harris_threshold(Mat corner_score, float thresh = 100.0f)
 {
 	Mat filtrada, sin_modificar = corner_score.clone();
 	Size corner_size = corner_score.size();
 	
 	vector<Point2f> features;
 	
-	sin_modificar.convertTo(sin_modificar, CV_16U,65535);
+//	sin_modificar.convertTo(sin_modificar, CV_16U,65535);
+	normalize(sin_modificar,sin_modificar, 0, 10000,cv::NORM_MINMAX);
 	filtrada = sin_modificar > thresh;	// imagen binaria (unsigned char 0 a 255)
 
 //	corner_score.convertTo(corner_score, CV_8U,255);
@@ -354,7 +355,7 @@ vector<descriptor> generate_descriptor(Mat gris, vector<Point2f> features)
 	transpose(gauss_y,gauss_x);
 	
 	gauss = gauss_y*gauss_x;
-	normalize(gauss,gauss,1,0,cv::NORM_MINMAX);
+	normalize(gauss,gauss,0,1,cv::NORM_MINMAX);
 	
 	for(int f=0;f<features.size();f++)
 	{
@@ -518,7 +519,7 @@ vector<descriptor> generate_descriptor(Mat gris, vector<Point2f> features)
 				}
 				
 				/// NORMALIZAR PARA MATCHEAR DESPUES -> reduce problemas por iluminacion
-				normalize(d_hist,d_hist,1,0,cv::NORM_MINMAX);
+				normalize(d_hist,d_hist,0,1,cv::NORM_MINMAX);
 				
 				d_hist.convertTo(d_hist,CV_8UC1,255.0f);
 				temp.HOG.push_back(d_hist.clone());

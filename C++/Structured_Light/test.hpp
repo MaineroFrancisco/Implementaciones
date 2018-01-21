@@ -244,7 +244,7 @@ void prueba_chessboard(String path)
 	imagenes[0].copyTo(color);
 	
 	namedWindow("imagen",1);
-	int val = 50, maximo = 255;
+	int val = 50, maximo = 10000;
 	createTrackbar("Threshold","imagen",&val,maximo);
 	
 	vector<Point2f>features;
@@ -258,7 +258,7 @@ void prueba_chessboard(String path)
 		
 		if(val2!=val){
 			features.clear();
-			features = chessboard_features(color, chess_size,gauss_size,val, mask);
+			features = chessboard_features(color, chess_size,gauss_size,(float)val, mask);
 			val2 = val;
 			cout<< "Cantidad de features: "<< features.size() << endl;
 		}
@@ -309,15 +309,15 @@ void test_features_completo(Mat org, Mat org2)
 	}
 	
 	cout<< "pre_score"<<endl;
-	Mat harris = harris_score_image(img,Size(11,11),mask,SHI_TOMASI);
-	Mat harris2 = harris_score_image(img2,Size(11,11),mask,SHI_TOMASI);
+	Mat harris = harris_score_image(img,Size(11,11),mask,HARRIS_NOBEL);
+	Mat harris2 = harris_score_image(img2,Size(11,11),mask,HARRIS_NOBEL);
 	cout<< "post_score"<<endl;
 	
 	cout<< "pre_filter"<<endl;
 	//	vector<Point2f> v = harris_threshold(harris,20000);
 	//	vector<Point2f> v2 = harris_threshold(harris2,20000);
-	vector<Point2f> v = harris_threshold(harris,200);
-	vector<Point2f> v2 = harris_threshold(harris2,200);
+	vector<Point2f> v = harris_threshold(harris,100);	/// recibe un float entre 0 y 10000
+	vector<Point2f> v2 = harris_threshold(harris2,100);
 	cout<< "post_filter"<<endl;
 	cout<< "cant features: "<<v.size()<<" "<<v2.size()<<endl;
 	

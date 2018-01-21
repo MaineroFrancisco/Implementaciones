@@ -76,22 +76,22 @@ Mat rotate_mask(Mat mask, double angle)
 
 ///
 //		4*1
-//vector<Mat> chessboard_features(Mat img,Size grid_features, vector<Vec2f> obj_position, Size size_nms, int thresh, Mat mask)
 ///FALTA! -> AJUSTAR EL THRESHOLD DINAMICO HASTA ENCONTRAR LA CANTIDAD DE PUNTOS DE LA CHESSBOARD O LOS MAS POSIBLES (POSIBLEMENTE DEDUCIR EL RESTO
 ///		  -> RELACIONAR CON LOS PUNTOS DE REFERENCIA REALES	(PASADOS COMO PARAMETRO)
 ///		  -> PROBAR USARLA PARA CALIBRAR 1 CAMARA RESPECTA A LA CHESSBOARD PRIMERO, LUEGO 2 CAMARAS RESPECTO A LA CHESSBOARD VISTA AL MISMO TIEMPO,
 ///				Y FINALMENTE CALIBRAR SOLO PARAMETROS INTERNOS Y DEDUCIR LA POSICION DE LA CAMARAS RELATIVAS ENTRE SI (REQUIERE UNION CON FEATURES MAS COMPLEJA)
-vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, int thresh, Mat mask)
+vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, float thresh, Mat mask)
+//vector<Mat> chessboard_features(Mat img,Size grid_features, vector<Point2f> obj_position, Size size_nms, int thresh, Mat mask)
 {
 	Mat gris, feature, r1, r2;
 	Mat diff;
 	Mat msk1, msk2;
 	Point2f center;
 	vector<Point2f> features;
-	vector<Vec4f> chessboard_features;
+	vector<Mat> chessboard_f;
 	
-	double angle, best_angle, minVal, maxVal, const_thresh = 0.70 ;
-	int cant_features, best_features = 0;
+	double angle, best_angle = -1.0f, const_thresh = 0.70 ;
+	int cant_features;
 	
 	cvtColor(img,gris,CV_BGR2GRAY);
 //	if(mask.empty())
@@ -103,35 +103,18 @@ vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, i
 //		feature = harris_corner_score(gris,size_nms,HARRIS_NOBEL);
 //	}
 	
-//	features = harris_threshold(feature, thresh);
+	///
+	features = harris_threshold(feature, thresh);	/// THRESH ENTER 0 Y 10000
 	
 	///
-//	vector<Point2f> features;
-//	
-	normalize(feature,feature,255.0f,0.0f,cv::NORM_MINMAX);
-	Mat filtrada = feature > thresh;	// imagen binaria (unsigned char 0 a 255)
-	
-	//	corner_score.convertTo(corner_score, CV_8U,255);
-	//	threshold(corner_score,filtrada,thresh,255,0);	// 0: thresh binario
-	
-	for(int i=0;i<feature.cols;i++) 
-	{
-		for(int j=0;j<feature.rows;j++) 
-		{
-			if(filtrada.at<unsigned char>(j,i) != 0)
-			{
-				features.push_back(Point2f(i,j));
-			}
-		}
-	}
-	
-	///
-	
-	
 	angle=0.0f;
 //	Scalar media_global = mean(gris);
 	
+	///EXTRA AUX VARS, BORRAR LUEGO, SON SOLO PARA PROBAR COSAS
+	double minVal, maxVal;
+	
 	threshold(gris,gris,mean(gris).val[0],255,CV_THRESH_BINARY);
+	
 	while(angle<90.0f)
 	{
 		msk1 = rotate_mask(checkb_mask,angle);
@@ -140,15 +123,8 @@ vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, i
 		filter2D(gris,r1,CV_32FC1,msk1);
 		filter2D(gris,r2,CV_32FC1,msk2);
 		
-		minMaxLoc(r1, &minVal, &maxVal);
-		
-		r1 = r1 + abs(minVal);
-		r1 = r1 / (abs(minVal)+maxVal);
-
-		minMaxLoc(r2, &minVal, &maxVal);
-		
-		r2 = r2 + abs(minVal);
-		r2 = r2 / (abs(minVal)+maxVal);
+		normalize(r1,r1,0,1,cv::NORM_MINMAX);
+		normalize(r2,r2,0,1,cv::NORM_MINMAX);
 		
 		diff = r1-r2;
 		diff = abs(diff);
@@ -167,51 +143,50 @@ vector<Point2f> chessboard_features(Mat img,Size grid_features, Size size_nms, i
 			
 		}
 		
-		if(cant_features > best_features){
-			best_angle = angle;
-			best_features = cant_features;
-		}
-		
-		angle+=10.0f;
-		
-	}
-	
-	msk1 = rotate_mask(checkb_mask, best_angle);
-	msk2 = rotate_mask(checkb_mask_ops, best_angle);
-	
-	filter2D(gris,r1,CV_32FC1,msk1);
-	filter2D(gris,r2,CV_32FC1,msk2);
-	
-	minMaxLoc(r1, &minVal, &maxVal);
-	
-	r1 = r1 + abs(minVal);
-	r1 = r1 / (abs(minVal)+maxVal);
-	
-	minMaxLoc(r2, &minVal, &maxVal);
-	
-	r2 = r2 + abs(minVal);
-	r2 = r2 / (abs(minVal)+maxVal);
-	
-	diff = r1-r2;
-	diff = abs(diff);
-	
-	threshold(diff,diff,const_thresh,1.0f,CV_THRESH_BINARY);
-	
-	cant_features = 0;
-	for(int i=0;i<features.size();i++) 
-	{
-		center = features[i];
-		
-		if(diff.at<float>(center.y,center.x) != 1.0f)
+		if(cant_features == (grid_features.width*grid_features.height))
 		{
-			features[i] = features[features.size()-1];
-			features.pop_back();
-			i--;
+			best_angle = angle;
+			break;
+		}
+		
+		angle+=15.0f;
+		
+	}
+	
+	/// SI NO ENCONTRO TODOS LOS PUNTOS DE LA GRILLA, DEVUELVE UN VECTOR VACIO, ERA MUY COSTOSO UN THRESH ADAPTATIVO
+	if(best_angle != -1.0f)
+	{
+		
+		for(int i=0;i<features.size();i++) 
+		{
+			center = features[i];
+			
+			if(diff.at<float>(center.y,center.x) != 1.0f)
+			{
+				features[i] = features[features.size()-1];
+				features.pop_back();
+				i--;
+			}
+			
 		}
 		
 	}
+	else
+	{
+		features.clear();
+	}
+	
+	/// ASOCIO LAS FEATURES DESCUBIERTAS CON LOS PUNTOS DEL MUNDO REAL PASADOS COMO PARAMETROS.
+	// Las posiciones vienen: de abajo para arriba, de izquierda a derecha, 
+	//		en un solo vector alargado de tamanio de la grilla (grilla.x*grilla.y) 
+	
+	
 	
 	return features;
 	
 }
 #endif
+
+
+
+/// REVISAR SIFT DENUEVO, HABIA UN NORM() AL REVES! POR ESO ESTABA DADO VUELTA.

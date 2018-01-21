@@ -18,7 +18,7 @@ current_source=chessboard.hpp
 path_char=\
 [source]
 path=main.cpp
-cursor=32:0
+cursor=36:1
 open=true
 [source]
 path=SL.cpp
@@ -29,7 +29,7 @@ path=SL.hpp
 cursor=74:8
 [header]
 path=test.hpp
-cursor=260:33
+cursor=260:14
 open=true
 [header]
 path=auxiliares.h
@@ -37,11 +37,11 @@ cursor=1497:48
 open=true
 [header]
 path=features.hpp
-cursor=286:2
+cursor=273:77
 open=true
 [header]
 path=chessboard.hpp
-cursor=82:150
+cursor=213:31
 open=true
 [other]
 path=readme.txt
