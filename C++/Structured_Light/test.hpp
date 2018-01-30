@@ -7,6 +7,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "chessboard.hpp"
+#include "SL.hpp"
+//#include "auxiliares.h"
 using namespace std;
 using namespace cv;
 
@@ -213,7 +215,7 @@ void prueba_chessboard(String path)
 {
 	Mat color, mask;
 	int img_cant = 5;	//CANTIDAD DE IMAGENES, La seteo yo nomas
-	Size chess_size(7,7);	//cantiadd de puntos a encontrar en la tabla:		Ancho/Alto
+	Size chess_size(7,6);	//cantiadd de puntos a encontrar en la tabla:		Ancho/Alto
 	Size gauss_size(11,11);	//paramaetro para la deteccion de los puntos claves y posterior filtrado, establece vecindades y espacio entre features
 	
 	
@@ -258,7 +260,7 @@ void prueba_chessboard(String path)
 		
 		if(val2!=val){
 			features.clear();
-			features = chessboard_features(color, chess_size,gauss_size,(float)val, mask);
+			features = chessboard_features_fix(color, chess_size,gauss_size,(float)val, mask);
 			val2 = val;
 			cout<< "Cantidad de features: "<< features.size() << endl;
 		}
@@ -392,542 +394,544 @@ void test_features_completo(Mat org, Mat org2)
 ///
 ///
 ///
-void sistema_completo(string path, bool cm2)
-{
-
-	///-----------------------------------------------------------------------------	
-	/// Camera Setting
-	///-----------------------------------------------------------------------------	
-	
-	VideoCapture cap1("http://192.168.1.105:4747/mjpegfeed?640x480"); 
-//	VideoCapture cap2("http://192.168.1.103:4747/mjpegfeed?640x480");
-	
-	VideoCapture cap2(0);
-	cap2.set(CV_CAP_PROP_FRAME_WIDTH,640);
-	cap2.set(CV_CAP_PROP_FRAME_HEIGHT,480);
-	
-	// Return si hubo error al abrir la camara.
-	if(!cap1.isOpened())
-	{
-		cout<<"Error al abrir la camara 1"<<endl;
-		return;
-	}
-	
-	//	 Return si hubo error al abrir la camara.
-	if(!cap2.isOpened())
-	{
-		cout<<"Error al abrir la camara 2"<<endl;
-		//return -1;
-		cm2 = false;
-	}
-	
-	unsigned char pressed_key;
-	int cam_id = 1, i;
-	
-	Mat frame1, frame2;
-	
-	cout<<"Comienza Proceso ... "<<endl;
-	///-----------------------------------------------------------------------------
-	/// Camera Captures
-	///-----------------------------------------------------------------------------
-	
-	namedWindow("Camara 1",1);
-	setMouseCallback("Camara 1", callback_c1, NULL);
-	
-	if (cm2)
-	{
-		namedWindow("Camara 2",1);
-		setMouseCallback("Camara 2", callback_c2, NULL);
-	}
-	
-	cout<<"Capturar Planilla ... "<<endl;
-	pressed_key = 0; 
-	while(pressed_key != 27)
-	{
-		cap1 >> frame1;  // Capturar el frame actual de la camara.
-		
-		for(int j=0;j<ind1;j++) 
-		{
-			Point2f pc1;
-			pc1.x = c1.at<float>(j,0);
-			pc1.y = c1.at<float>(j,1);
-			
-			circle(frame1,pc1,5,Scalar(255));
-		}
-		
-		imshow("Camara 1", frame1);
-		
-		
-		if(cm2)
-		{
-			cap2 >> frame2;  // Capturar el frame actual de la camara.
-			
-			for(int j=0;j<ind2;j++) 
-			{
-				Point2f pc2;
-				pc2.x = c2.at<float>(j,0);
-				pc2.y = c2.at<float>(j,1);
-				
-				circle(frame2,pc2,5,Scalar(255));
-			}
-			
-			imshow("Camara 2", frame2);
-		}
-		
-//		if (pressed_key == 10)
-		if (pressed_key == 13)
-		{
-			save_capture(frame1, path, 1);
-			
-			if(cm2)
-			{
-				save_capture(frame2, path, 2);
-			}
-		}
-		
-		pressed_key  = waitKey(5);
-	}
-	
-	setMouseCallback("Camara 1", NULL, NULL);
-	
-	if(cm2)
-		setMouseCallback("Camara 2", NULL, NULL);
-	
-	cout<<"Capturar Planilla ... Terminado "<<endl;
-	
-	///-----------------------------------------------------------------------------
-	/// Calibracion y Construccion de la Escena General (Determinar Propiedades 
-	///		Extrinsecas de la camara para la posicionar todo en escena, 
-	///		poseteriormente triangular para reconstruir)
-	///-----------------------------------------------------------------------------
-	//		 Ancho  |	Alto	
-	int proj_res_w = 128, proj_res_h = 128;
-	
-	SL sl(proj_res_w,proj_res_h);
-	
-	cout<< "Calibrando Camaras... "<<endl;
-	vector<Mat> vc1, vc2;
-	
-	vc1 = sl.plane_base_calibration(cam1);
-	
-	if(cm2)
-		vc2 = sl.plane_base_calibration(cam2);
-	
-	cout<< "Calibrando Camaras... Terminado"<<endl<<endl;
-///-----------------------------------------------------------------------------
-/// patrones codificados
-///-----------------------------------------------------------------------------
-	
-///-----------------------------------------------------------------------------
-/// 
-/// Construir mascara para filtrar sombra y fondo.
-///		Requiere capturas extra:
-///			Para Background:
-///				Capturas antes y despues de colocar el objeto (de por si al usar luz estructurada la escena se supone estatica asi que no deberia haber problema)
-///			Para sombra:
-///				Capturas full iluminada y oscura.
-///	
-///-----------------------------------------------------------------------------
-	
-	namedWindow("Pattern Windows",CV_WINDOW_NORMAL);
-	setWindowProperty("Pattern Windows", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
-	
-	/// Mascara de segmentado
-	
-	cout<< "Capturar p/ Mascara - Segmentacion... "<<endl;
-	
-	pressed_key = 0;
-	vector<Mat> obj_c1, obj_c2;
-	while(pressed_key != 27 && obj_c1.size()<2)
-	{
-		
-		cap1 >> frame1;
-		imshow("Camara 1", frame1);
-		
-		if(cm2)
-		{
-			cap2 >> frame2;
-			imshow("Camara 2", frame2);
-		}
-		
-//		if (pressed_key == 10)	//enter
-		if (pressed_key == 13) 	//espacio
-		{
-				cvtColor(frame1,frame1,cv::COLOR_BGR2GRAY);
-				obj_c1.push_back(frame1.clone());
-				
-				save_capture(frame1, path, 1);
-				
-				if(cm2)
-				{
-					cvtColor(frame2,frame2,cv::COLOR_BGR2GRAY);
-					obj_c2.push_back(frame2.clone());
-					
-					save_capture(frame2, path, 2);
-				}
-		}
-			
-			pressed_key  = waitKey(5);
-			
-	}
-	
-	Mat m_segm_c1, m_segm_c2;
-	
-	m_segm_c1 = obj_c1[1] - obj_c1[0];
-	
-	if(cm2)
-		m_segm_c2 = obj_c2[1] - obj_c2[0];
-			
-	cout<< "Capturar p/ Mascara - Segmentacion... Terminado"<<endl;
-	
-	///	Mascara para la sombra
-	
-	cout<< "Capturar p/ Mascara - Sombra... "<<endl;
-	
-	//oscuro
-	Mat osc_c1, osc_c2;
-	Mat oscuro = Mat::zeros(proj_res_h,proj_res_w,CV_32FC1);
-	imshow("Pattern Windows", oscuro);
-	waitKey(0);
-	
-	pressed_key =0;
-	while(pressed_key != 27)
-	{
-		
-		cap1 >> frame1;
-		imshow("Camara 1", frame1);
-		
-		if(cm2)
-		{
-			cap2 >> frame2;
-			imshow("Camara 2", frame2);
-		}
-		
-//		if (pressed_key == 10)
-		if (pressed_key == 13)
-		{
-				cvtColor(frame1,frame1,cv::COLOR_BGR2GRAY);
-				osc_c1 = frame1;
-				
-				save_capture(frame1, path, 1);
-				
-				if(cm2)
-				{
-					cvtColor(frame2,frame2,cv::COLOR_BGR2GRAY);
-					osc_c2 = frame2;
-					
-					save_capture(frame2, path, 2);
-				}
-				
-				break;
-		}
-			
-			pressed_key  = waitKey(5);
-			
-	}
-	
-	//	brillante
-	Mat bri_c1, bri_c2;
-	Mat brillante = Mat::ones(proj_res_h,proj_res_w,CV_32FC1);
-	imshow("Pattern Windows", brillante);
-	waitKey(0);
-	
-	pressed_key =0;
-	while(pressed_key != 27)
-	{
-		
-		cap1 >> frame1;
-		imshow("Camara 1", frame1);
-		
-		if(cm2)
-		{
-			cap2 >> frame2;
-			imshow("Camara 2", frame2);
-		}
-		
-		//		if (pressed_key == 10)
-		if (pressed_key == 13)
-		{
-			cvtColor(frame1,frame1,cv::COLOR_BGR2GRAY);
-			bri_c1 = frame1;
-			
-			save_capture(frame1, path, 1);
-			
-			if(cm2)
-			{
-				cvtColor(frame2,frame2,cv::COLOR_BGR2GRAY);
-				bri_c2 = frame2;
-				
-				save_capture(frame2, path, 2);
-			}
-			break;
-		}
-		
-		pressed_key  = waitKey(5);
-		
-	}
-	
-	// Mascara
-	Mat m_sombra_c1, m_sombra_c2;
-	
-	m_sombra_c1 = bri_c1 - osc_c1;
-	
-	if(cm2)
-		m_sombra_c2 = bri_c2 - osc_c2;
-	
-	cout<< "Capturar p/ Mascara - Sombra... Terminado"<<endl;
-	
-	// Binarizacion de la mascara
-	cout<< "Binarizacion Mascara... "<<endl;
-	int sl_c1 = 0, sh_c1 = 255, bl_c1 = 0, bh_c1 = 255;
-	int sl_c2 = 0, sh_c2 = 255, bl_c2 = 0, bh_c2 = 255;
-	
-	// LOW | HIGH
-	createTrackbar("Back_l","Camara 1",&bl_c1,255,NULL);
-	createTrackbar("Back_h","Camara 1",&bh_c1,255,NULL);
-	createTrackbar("Sombra_l","Camara 1",&sl_c1,255,NULL);
-	createTrackbar("Sombra_h","Camara 1",&sh_c1,255,NULL);
-	
-	if(cm2)
-	{
-		createTrackbar("Back_l","Camara 2",&bl_c2,255,NULL);
-		createTrackbar("Back_h","Camara 2",&bh_c2,255,NULL);
-		createTrackbar("Sombra_l","Camara 2",&sl_c2,255,NULL);
-		createTrackbar("Sombra_h","Camara 2",&sh_c2,255,NULL);
-	}
-	
-	Mat sl_1, sh_1, bgl_1, bgh_1, sl_2, sh_2, bgl_2, bgh_2;
-	Mat sh1, bg1, sh2, bg2;
-	Mat mask_c1, mask_c2;
-	
-	pressed_key = 0;
-	while(pressed_key != 27)
-	{
-		
-		/// Threshold
-		// Segmentacion
-		threshold(m_segm_c1,bgl_1,bl_c1,255, THRESH_BINARY);
-		threshold(m_segm_c1,bgh_1,bh_c1,255, THRESH_BINARY_INV);
-		
-		// Sombra
-		threshold(m_sombra_c1,sl_1,sl_c1,255, THRESH_BINARY);
-		threshold(m_sombra_c1,sh_1,sh_c1,255, THRESH_BINARY_INV);
-		
-		/// Mascara
-		bitwise_and(sl_1,sh_1,sh1);
-		bitwise_and(bgl_1,bgh_1,bg1);
-		bitwise_and(sh1,bg1,mask_c1);
-		
-		/// Trackbar Posicion
-		bl_c1 = getTrackbarPos("Back_l", "Camara 1");
-		bh_c1 = getTrackbarPos("Back_h", "Camara 1");
-		sl_c1 = getTrackbarPos("Sombra_l", "Camara 1");
-		sh_c1 = getTrackbarPos("Sombra_h", "Camara 1");
-		
-		/// Mostrar Mascaras Finales
-		imshow("Camara 1", mask_c1);
-		
-		if(cm2){
-			/// Threshold
-			// Segmentacion
-			threshold(m_segm_c2,bgl_2,bl_c2,255, THRESH_BINARY);
-			threshold(m_segm_c2,bgh_2,bh_c2,255, THRESH_BINARY_INV);
-			
-			// Sombra
-			threshold(m_sombra_c2,sl_2,sl_c2,255, THRESH_BINARY);
-			threshold(m_sombra_c2,sh_2,sh_c2,255, THRESH_BINARY_INV);
-			
-			/// Mascara
-			bitwise_and(sl_2,sh_2,sh2);
-			bitwise_and(bgl_2,bgh_2,bg2);
-			bitwise_and(sh2,bg2,mask_c2);
-			
-			/// Trackbar Posicion
-			bl_c2 = getTrackbarPos("Back_l", "Camara 2");
-			bh_c2 = getTrackbarPos("Back_h", "Camara 2");
-			sl_c2 = getTrackbarPos("Sombra_l", "Camara 2");
-			sh_c2 = getTrackbarPos("Sombra_h", "Camara 2");
-			
-			imshow("Camara 2", mask_c2);
-		}
-		
-		///
-		pressed_key = waitKey(5);
-		
-		cap1 >> frame1; //no necesario...lo deje porque ocurria un error con el enlace al telefono sino... quitar despues...
-		cap2 >> frame2; 
-	}
-	
-	cout<< "Binarizacion Mascara... Terminado"<<endl<<endl;
-	
-	///-----------------------------------------------------------------------------
-	/// Capturar y salvar imagenes de los patrones producidos (trabajo efectivo sobre la escena)
-	///-----------------------------------------------------------------------------
-	/// Continua lo anterior
-	pressed_key = 0; 
-	i=0;
-	
-	vector<Mat> test_g = sl.generate_gray_code_patterns();
-	vector<Mat> test_b = sl.generate_binary_code_patterns();
-	int cd=0;
-	
-	vector<Mat> cap_c1, cap_c2;
-	
-	cout<< "Capturar Patrones Codificados... "<<endl;
-	pressed_key = 0;
-	while(pressed_key != 27 && cd<test_g.size())
-	{
-		imshow("Pattern Windows", test_b[cd]);
-		
-		cap1 >> frame1;
-		imshow("Camara 1", frame1);
-		
-		if(cm2)
-		{
-			cap2 >> frame2;
-			imshow("Camara 2", frame2);
-		}
-		
-		//		if (pressed_key == 10)
-		if (pressed_key == 13)
-		{
-			cout<< "	Saving Capture..."<<endl;
-			
-			cap_c1.push_back(frame1);
-			save_capture(frame1, path, 1);
-			
-			if(cm2)
-			{
-				cap_c2.push_back(frame2);
-				save_capture(frame2, path, 2);
-			}
-			
-			i++;
-			cd++;
-		}
-		
-		pressed_key  = waitKey(5);
-		
-	}
-	
-	cout<< "Capturar Patrones Codificados... Terminado"<<endl;
-	
-	destroyWindow("Pattern Windows");
-	
-	
-	/// Decodificacion
-	Mat t1, t2;
-	cout<< "Decodificar Patrones... "<<endl;
-	
-	destroyWindow("Camara 1");
-	save_capture(mask_c1, path, 1);
-	t1 = sl.decode_captured_patterns(cap_c1,mask_c1);
-	
-	if(cm2)
-	{
-		destroyWindow("Camara 2");
-		save_capture(mask_c2, path, 2);
-		t2 = sl.decode_captured_patterns(cap_c2,mask_c2);
-	}
-	
-	cout<< "Decodificar Patrones... Terminado"<<endl<<endl;
-	///--------------------------------------------------------------------------------------------------------
-	
-	int N = t1.size().height;
-	Mat inters;
-	vector<Point3f> pc;
-	
-	cout<<"Reconstruccion... "<<endl;
-	
-	if (cm2){
-		
-		for(int i=0;i<N;i++) 
-		{
-			int row_1 = t1.at<int>(i,0);
-			int col_1 = t1.at<int>(i,1);
-			int cant_1 = t1.at<int>(i,2);
-			
-			int row_2 = t2.at<int>(i,0);
-			int col_2 = t2.at<int>(i,1);
-			int cant_2 = t2.at<int>(i,2);
-			
-			if (cant_1 && cant_2){					
-				row_1 /= cant_1;
-				col_1 /= cant_1;
-				
-				row_2 /= cant_2;
-				col_2 /= cant_2;
-				
-				Mat p1 = (
-						  Mat_<float>(1,3) << 
-						  (float) row_1, (float) col_1, 1.0f
-						  );
-				
-				Mat p2 = (
-						  Mat_<float>(1,3) << 
-						  (float) row_2, (float) col_2, 1.0f
-						  );
-				
-				// Orden de elementos: Pendiente | Offset
-				Mat line1 = sl.get_line(vc1[0],vc1[1],p1);
-				Mat line2 = sl.get_line(vc2[0],vc2[1],p2);
-				
-				pc.push_back( sl.calc_intersection(line1,line2) );
-				
-			}
-			
-		}
-	}
-	
-	
-	cout<<"Reconstruccion... Terminado"<<endl<<endl;
-	///-----------------------------------------------------------------------------
-	/// Vizualisacion 3D
-	///-----------------------------------------------------------------------------
-	
-	cout<<"Visualizacion 3D... "<<endl;	
-	viz::Viz3d window("Coordinate Frame");
-	window.setWindowSize(Size(500,500));
-	window.setWindowPosition(Point(150,150));
-	window.setBackgroundColor(); // black by default
-	
-	
-	/// Systema de coordenadas del mundo
-	viz::WLine axisX(Point3f(0.0f,0.0f,0.0f), Point3f(1.0f,0.0f,0.0f), Scalar(255,0,0));
-	axisX.setRenderingProperty(viz::LINE_WIDTH, 1.0);
-	window.showWidget("Orig X", axisX);
-	
-	viz::WLine axisY(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,1.0f,0.0f), Scalar(0,0,255));
-	axisY.setRenderingProperty(viz::LINE_WIDTH, 1.0);
-	window.showWidget("Orig Y", axisY);
-	
-	viz::WLine axisZ(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,0.0f,1.0f), Scalar(0,255,0));
-	axisZ.setRenderingProperty(viz::LINE_WIDTH, 1.0);
-	window.showWidget("Orig Z", axisZ);
-	
-	/// Add coordinate axes
-	draw_sys_coord(vc1[1], window);
-	
-	if (cm2)
-		draw_sys_coord(vc2[1], window);
-	
-	/// Draw Point cloud
-	
-	for(int i=0;i<pc.size();i++) 
-	{
-		ostringstream os;
-		os<<i;
-		viz::WSphere p( pc[i], 0.05f );	
-		window.showWidget("P_"+os.str(), p);
-	}	
-	
-	window.spin();
-	
-	cout<<"Visualizacion 3D... Terminado"<<endl<<endl;
-	
-	///-----------------------------------------------------------------------------
-	cout<<"Proceso Completo."<<endl;
-}
+//void sistema_completo(string path, bool cm2)
+//{
+//
+//	///-----------------------------------------------------------------------------	
+//	/// Camera Setting
+//	///-----------------------------------------------------------------------------	
+//	
+//	VideoCapture cap1("http://192.168.1.105:4747/mjpegfeed?640x480"); 
+////	VideoCapture cap2("http://192.168.1.103:4747/mjpegfeed?640x480");
+//	
+//	VideoCapture cap2(0);
+//	cap2.set(CV_CAP_PROP_FRAME_WIDTH,640);
+//	cap2.set(CV_CAP_PROP_FRAME_HEIGHT,480);
+//	
+//	// Return si hubo error al abrir la camara.
+//	if(!cap1.isOpened())
+//	{
+//		cout<<"Error al abrir la camara 1"<<endl;
+//		return;
+//	}
+//	
+//	//	 Return si hubo error al abrir la camara.
+//	if(!cap2.isOpened())
+//	{
+//		cout<<"Error al abrir la camara 2"<<endl;
+//		//return -1;
+//		cm2 = false;
+//	}
+//	
+//	unsigned char pressed_key;
+//	int cam_id = 1, i;
+//	
+//	Mat frame1, frame2;
+//	
+//	cout<<"Comienza Proceso ... "<<endl;
+//	///-----------------------------------------------------------------------------
+//	/// Camera Captures
+//	///-----------------------------------------------------------------------------
+//	
+//	namedWindow("Camara 1",1);
+//	setMouseCallback("Camara 1", callback_c1, NULL);
+//	
+//	if (cm2)
+//	{
+//		namedWindow("Camara 2",1);
+//		setMouseCallback("Camara 2", callback_c2, NULL);
+//	}
+//	
+//	cout<<"Capturar Planilla ... "<<endl;
+//	pressed_key = 0; 
+//	while(pressed_key != 27)
+//	{
+//		cap1 >> frame1;  // Capturar el frame actual de la camara.
+//		
+//		for(int j=0;j<ind1;j++) 
+//		{
+//			Point2f pc1;
+//			pc1.x = c1.at<float>(j,0);
+//			pc1.y = c1.at<float>(j,1);
+//			
+//			circle(frame1,pc1,5,Scalar(255));
+//		}
+//		
+//		imshow("Camara 1", frame1);
+//		
+//		
+//		if(cm2)
+//		{
+//			cap2 >> frame2;  // Capturar el frame actual de la camara.
+//			
+//			for(int j=0;j<ind2;j++) 
+//			{
+//				Point2f pc2;
+//				pc2.x = c2.at<float>(j,0);
+//				pc2.y = c2.at<float>(j,1);
+//				
+//				circle(frame2,pc2,5,Scalar(255));
+//			}
+//			
+//			imshow("Camara 2", frame2);
+//		}
+//		
+////		if (pressed_key == 10)
+//		if (pressed_key == 13)
+//		{
+//			save_capture(frame1, path, 1);
+//			
+//			if(cm2)
+//			{
+//				save_capture(frame2, path, 2);
+//			}
+//		}
+//		
+//		pressed_key  = waitKey(5);
+//	}
+//	
+//	setMouseCallback("Camara 1", NULL, NULL);
+//	
+//	if(cm2)
+//		setMouseCallback("Camara 2", NULL, NULL);
+//	
+//	cout<<"Capturar Planilla ... Terminado "<<endl;
+//	
+//	///-----------------------------------------------------------------------------
+//	/// Calibracion y Construccion de la Escena General (Determinar Propiedades 
+//	///		Extrinsecas de la camara para la posicionar todo en escena, 
+//	///		poseteriormente triangular para reconstruir)
+//	///-----------------------------------------------------------------------------
+//	//		 Ancho  |	Alto	
+//	int proj_res_w = 128, proj_res_h = 128;
+//	
+//	SL sl(proj_res_w,proj_res_h);
+//	
+//	cout<< "Calibrando Camaras... "<<endl;
+//	vector<Mat> vc1, vc2;
+//	
+//	vc1 = sl.plane_base_calibration(cam1);
+//	
+//	if(cm2)
+//		vc2 = sl.plane_base_calibration(cam2);
+//	
+//	cout<< "Calibrando Camaras... Terminado"<<endl<<endl;
+/////-----------------------------------------------------------------------------
+///// patrones codificados
+/////-----------------------------------------------------------------------------
+//	
+/////-----------------------------------------------------------------------------
+///// 
+///// Construir mascara para filtrar sombra y fondo.
+/////		Requiere capturas extra:
+/////			Para Background:
+/////				Capturas antes y despues de colocar el objeto (de por si al usar luz estructurada la escena se supone estatica asi que no deberia haber problema)
+/////			Para sombra:
+/////				Capturas full iluminada y oscura.
+/////	
+/////-----------------------------------------------------------------------------
+//	
+//	namedWindow("Pattern Windows",CV_WINDOW_NORMAL);
+//	setWindowProperty("Pattern Windows", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+//	
+//	/// Mascara de segmentado
+//	
+//	cout<< "Capturar p/ Mascara - Segmentacion... "<<endl;
+//	
+//	pressed_key = 0;
+//	vector<Mat> obj_c1, obj_c2;
+//	while(pressed_key != 27 && obj_c1.size()<2)
+//	{
+//		
+//		cap1 >> frame1;
+//		imshow("Camara 1", frame1);
+//		
+//		if(cm2)
+//		{
+//			cap2 >> frame2;
+//			imshow("Camara 2", frame2);
+//		}
+//		
+////		if (pressed_key == 10)	//enter
+//		if (pressed_key == 13) 	//espacio
+//		{
+//				cvtColor(frame1,frame1,cv::COLOR_BGR2GRAY);
+//				obj_c1.push_back(frame1.clone());
+//				
+//				save_capture(frame1, path, 1);
+//				
+//				if(cm2)
+//				{
+//					cvtColor(frame2,frame2,cv::COLOR_BGR2GRAY);
+//					obj_c2.push_back(frame2.clone());
+//					
+//					save_capture(frame2, path, 2);
+//				}
+//		}
+//			
+//			pressed_key  = waitKey(5);
+//			
+//	}
+//	
+//	Mat m_segm_c1, m_segm_c2;
+//	
+//	m_segm_c1 = obj_c1[1] - obj_c1[0];
+//	
+//	if(cm2)
+//		m_segm_c2 = obj_c2[1] - obj_c2[0];
+//			
+//	cout<< "Capturar p/ Mascara - Segmentacion... Terminado"<<endl;
+//	
+//	///	Mascara para la sombra
+//	
+//	cout<< "Capturar p/ Mascara - Sombra... "<<endl;
+//	
+//	//oscuro
+//	Mat osc_c1, osc_c2;
+//	Mat oscuro = Mat::zeros(proj_res_h,proj_res_w,CV_32FC1);
+//	imshow("Pattern Windows", oscuro);
+//	waitKey(0);
+//	
+//	pressed_key =0;
+//	while(pressed_key != 27)
+//	{
+//		
+//		cap1 >> frame1;
+//		imshow("Camara 1", frame1);
+//		
+//		if(cm2)
+//		{
+//			cap2 >> frame2;
+//			imshow("Camara 2", frame2);
+//		}
+//		
+////		if (pressed_key == 10)
+//		if (pressed_key == 13)
+//		{
+//				cvtColor(frame1,frame1,cv::COLOR_BGR2GRAY);
+//				osc_c1 = frame1;
+//				
+//				save_capture(frame1, path, 1);
+//				
+//				if(cm2)
+//				{
+//					cvtColor(frame2,frame2,cv::COLOR_BGR2GRAY);
+//					osc_c2 = frame2;
+//					
+//					save_capture(frame2, path, 2);
+//				}
+//				
+//				break;
+//		}
+//			
+//			pressed_key  = waitKey(5);
+//			
+//	}
+//	
+//	//	brillante
+//	Mat bri_c1, bri_c2;
+//	Mat brillante = Mat::ones(proj_res_h,proj_res_w,CV_32FC1);
+//	imshow("Pattern Windows", brillante);
+//	waitKey(0);
+//	
+//	pressed_key =0;
+//	while(pressed_key != 27)
+//	{
+//		
+//		cap1 >> frame1;
+//		imshow("Camara 1", frame1);
+//		
+//		if(cm2)
+//		{
+//			cap2 >> frame2;
+//			imshow("Camara 2", frame2);
+//		}
+//		
+//		//		if (pressed_key == 10)
+//		if (pressed_key == 13)
+//		{
+//			cvtColor(frame1,frame1,cv::COLOR_BGR2GRAY);
+//			bri_c1 = frame1;
+//			
+//			save_capture(frame1, path, 1);
+//			
+//			if(cm2)
+//			{
+//				cvtColor(frame2,frame2,cv::COLOR_BGR2GRAY);
+//				bri_c2 = frame2;
+//				
+//				save_capture(frame2, path, 2);
+//			}
+//			break;
+//		}
+//		
+//		pressed_key  = waitKey(5);
+//		
+//	}
+//	
+//	// Mascara
+//	Mat m_sombra_c1, m_sombra_c2;
+//	
+//	m_sombra_c1 = bri_c1 - osc_c1;
+//	
+//	if(cm2)
+//		m_sombra_c2 = bri_c2 - osc_c2;
+//	
+//	cout<< "Capturar p/ Mascara - Sombra... Terminado"<<endl;
+//	
+//	// Binarizacion de la mascara
+//	cout<< "Binarizacion Mascara... "<<endl;
+//	int sl_c1 = 0, sh_c1 = 255, bl_c1 = 0, bh_c1 = 255;
+//	int sl_c2 = 0, sh_c2 = 255, bl_c2 = 0, bh_c2 = 255;
+//	
+//	// LOW | HIGH
+//	createTrackbar("Back_l","Camara 1",&bl_c1,255,NULL);
+//	createTrackbar("Back_h","Camara 1",&bh_c1,255,NULL);
+//	createTrackbar("Sombra_l","Camara 1",&sl_c1,255,NULL);
+//	createTrackbar("Sombra_h","Camara 1",&sh_c1,255,NULL);
+//	
+//	if(cm2)
+//	{
+//		createTrackbar("Back_l","Camara 2",&bl_c2,255,NULL);
+//		createTrackbar("Back_h","Camara 2",&bh_c2,255,NULL);
+//		createTrackbar("Sombra_l","Camara 2",&sl_c2,255,NULL);
+//		createTrackbar("Sombra_h","Camara 2",&sh_c2,255,NULL);
+//	}
+//	
+//	Mat sl_1, sh_1, bgl_1, bgh_1, sl_2, sh_2, bgl_2, bgh_2;
+//	Mat sh1, bg1, sh2, bg2;
+//	Mat mask_c1, mask_c2;
+//	
+//	pressed_key = 0;
+//	while(pressed_key != 27)
+//	{
+//		
+//		/// Threshold
+//		// Segmentacion
+//		threshold(m_segm_c1,bgl_1,bl_c1,255, THRESH_BINARY);
+//		threshold(m_segm_c1,bgh_1,bh_c1,255, THRESH_BINARY_INV);
+//		
+//		// Sombra
+//		threshold(m_sombra_c1,sl_1,sl_c1,255, THRESH_BINARY);
+//		threshold(m_sombra_c1,sh_1,sh_c1,255, THRESH_BINARY_INV);
+//		
+//		/// Mascara
+//		bitwise_and(sl_1,sh_1,sh1);
+//		bitwise_and(bgl_1,bgh_1,bg1);
+//		bitwise_and(sh1,bg1,mask_c1);
+//		
+//		/// Trackbar Posicion
+//		bl_c1 = getTrackbarPos("Back_l", "Camara 1");
+//		bh_c1 = getTrackbarPos("Back_h", "Camara 1");
+//		sl_c1 = getTrackbarPos("Sombra_l", "Camara 1");
+//		sh_c1 = getTrackbarPos("Sombra_h", "Camara 1");
+//		
+//		/// Mostrar Mascaras Finales
+//		imshow("Camara 1", mask_c1);
+//		
+//		if(cm2){
+//			/// Threshold
+//			// Segmentacion
+//			threshold(m_segm_c2,bgl_2,bl_c2,255, THRESH_BINARY);
+//			threshold(m_segm_c2,bgh_2,bh_c2,255, THRESH_BINARY_INV);
+//			
+//			// Sombra
+//			threshold(m_sombra_c2,sl_2,sl_c2,255, THRESH_BINARY);
+//			threshold(m_sombra_c2,sh_2,sh_c2,255, THRESH_BINARY_INV);
+//			
+//			/// Mascara
+//			bitwise_and(sl_2,sh_2,sh2);
+//			bitwise_and(bgl_2,bgh_2,bg2);
+//			bitwise_and(sh2,bg2,mask_c2);
+//			
+//			/// Trackbar Posicion
+//			bl_c2 = getTrackbarPos("Back_l", "Camara 2");
+//			bh_c2 = getTrackbarPos("Back_h", "Camara 2");
+//			sl_c2 = getTrackbarPos("Sombra_l", "Camara 2");
+//			sh_c2 = getTrackbarPos("Sombra_h", "Camara 2");
+//			
+//			imshow("Camara 2", mask_c2);
+//		}
+//		
+//		///
+//		pressed_key = waitKey(5);
+//		
+//		cap1 >> frame1; //no necesario...lo deje porque ocurria un error con el enlace al telefono sino... quitar despues...
+//		cap2 >> frame2; 
+//	}
+//	
+//	cout<< "Binarizacion Mascara... Terminado"<<endl<<endl;
+//	
+//	///-----------------------------------------------------------------------------
+//	/// Capturar y salvar imagenes de los patrones producidos (trabajo efectivo sobre la escena)
+//	///-----------------------------------------------------------------------------
+//	/// Continua lo anterior
+//	pressed_key = 0; 
+//	i=0;
+//	
+//	vector<Mat> test_g = sl.generate_code_patterns(GRAY);
+//	vector<Mat> test_b = sl.generate_code_patterns();
+////	vector<Mat> test_g = sl.generate_gray_code_patterns();
+////	vector<Mat> test_b = sl.generate_binary_code_patterns();
+//	int cd=0;
+//	
+//	vector<Mat> cap_c1, cap_c2;
+//	
+//	cout<< "Capturar Patrones Codificados... "<<endl;
+//	pressed_key = 0;
+//	while(pressed_key != 27 && cd<test_g.size())
+//	{
+//		imshow("Pattern Windows", test_b[cd]);
+//		
+//		cap1 >> frame1;
+//		imshow("Camara 1", frame1);
+//		
+//		if(cm2)
+//		{
+//			cap2 >> frame2;
+//			imshow("Camara 2", frame2);
+//		}
+//		
+//		//		if (pressed_key == 10)
+//		if (pressed_key == 13)
+//		{
+//			cout<< "	Saving Capture..."<<endl;
+//			
+//			cap_c1.push_back(frame1);
+//			save_capture(frame1, path, 1);
+//			
+//			if(cm2)
+//			{
+//				cap_c2.push_back(frame2);
+//				save_capture(frame2, path, 2);
+//			}
+//			
+//			i++;
+//			cd++;
+//		}
+//		
+//		pressed_key  = waitKey(5);
+//		
+//	}
+//	
+//	cout<< "Capturar Patrones Codificados... Terminado"<<endl;
+//	
+//	destroyWindow("Pattern Windows");
+//	
+//	
+//	/// Decodificacion
+//	Mat t1, t2;
+//	cout<< "Decodificar Patrones... "<<endl;
+//	
+//	destroyWindow("Camara 1");
+//	save_capture(mask_c1, path, 1);
+//	t1 = sl.decode_captured_patterns(cap_c1,mask_c1);
+//	
+//	if(cm2)
+//	{
+//		destroyWindow("Camara 2");
+//		save_capture(mask_c2, path, 2);
+//		t2 = sl.decode_captured_patterns(cap_c2,mask_c2);
+//	}
+//	
+//	cout<< "Decodificar Patrones... Terminado"<<endl<<endl;
+//	///--------------------------------------------------------------------------------------------------------
+//	
+//	int N = t1.size().height;
+//	Mat inters;
+//	vector<Point3f> pc;
+//	
+//	cout<<"Reconstruccion... "<<endl;
+//	
+//	if (cm2){
+//		
+//		for(int i=0;i<N;i++) 
+//		{
+//			int row_1 = t1.at<int>(i,0);
+//			int col_1 = t1.at<int>(i,1);
+//			int cant_1 = t1.at<int>(i,2);
+//			
+//			int row_2 = t2.at<int>(i,0);
+//			int col_2 = t2.at<int>(i,1);
+//			int cant_2 = t2.at<int>(i,2);
+//			
+//			if (cant_1 && cant_2){					
+//				row_1 /= cant_1;
+//				col_1 /= cant_1;
+//				
+//				row_2 /= cant_2;
+//				col_2 /= cant_2;
+//				
+//				Mat p1 = (
+//						  Mat_<float>(1,3) << 
+//						  (float) row_1, (float) col_1, 1.0f
+//						  );
+//				
+//				Mat p2 = (
+//						  Mat_<float>(1,3) << 
+//						  (float) row_2, (float) col_2, 1.0f
+//						  );
+//				
+//				// Orden de elementos: Pendiente | Offset
+//				Mat line1 = sl.get_line(vc1[0],vc1[1],p1);
+//				Mat line2 = sl.get_line(vc2[0],vc2[1],p2);
+//				
+//				pc.push_back( sl.calc_intersection(line1,line2) );
+//				
+//			}
+//			
+//		}
+//	}
+//	
+//	
+//	cout<<"Reconstruccion... Terminado"<<endl<<endl;
+//	///-----------------------------------------------------------------------------
+//	/// Vizualisacion 3D
+//	///-----------------------------------------------------------------------------
+//	
+//	cout<<"Visualizacion 3D... "<<endl;	
+//	viz::Viz3d window("Coordinate Frame");
+//	window.setWindowSize(Size(500,500));
+//	window.setWindowPosition(Point(150,150));
+//	window.setBackgroundColor(); // black by default
+//	
+//	
+//	/// Systema de coordenadas del mundo
+//	viz::WLine axisX(Point3f(0.0f,0.0f,0.0f), Point3f(1.0f,0.0f,0.0f), Scalar(255,0,0));
+//	axisX.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig X", axisX);
+//	
+//	viz::WLine axisY(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,1.0f,0.0f), Scalar(0,0,255));
+//	axisY.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig Y", axisY);
+//	
+//	viz::WLine axisZ(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,0.0f,1.0f), Scalar(0,255,0));
+//	axisZ.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig Z", axisZ);
+//	
+//	/// Add coordinate axes
+//	draw_sys_coord(vc1[1], window);
+//	
+//	if (cm2)
+//		draw_sys_coord(vc2[1], window);
+//	
+//	/// Draw Point cloud
+//	
+//	for(int i=0;i<pc.size();i++) 
+//	{
+//		ostringstream os;
+//		os<<i;
+//		viz::WSphere p( pc[i], 0.05f );	
+//		window.showWidget("P_"+os.str(), p);
+//	}	
+//	
+//	window.spin();
+//	
+//	cout<<"Visualizacion 3D... Terminado"<<endl<<endl;
+//	
+//	///-----------------------------------------------------------------------------
+//	cout<<"Proceso Completo."<<endl;
+//}
 
 
 
@@ -950,7 +954,8 @@ void projector()
 	waitKey(0);
 	
 	
-	vector<Mat> bin = sl.generate_binary_code_patterns();
+//	vector<Mat> bin = sl.generate_binary_code_patterns();
+	vector<Mat> bin = sl.generate_code_patterns();
 	
 	unsigned char pressed_key =0;
 	int i =0;
@@ -958,14 +963,16 @@ void projector()
 	{
 		imshow("Show",bin[i]);
 		
-		if(pressed_key == 10){
+//		if(pressed_key == 10){
+		if(pressed_key == 13){
 			i++;
 		}
 		
 		pressed_key = waitKey(5);
 	}
 	
-	vector<Mat> gry = sl.generate_gray_code_patterns();
+//	vector<Mat> gry = sl.generate_gray_code_patterns();
+	vector<Mat> gry = sl.generate_code_patterns(GRAY);
 	
 	pressed_key =0;
 	i =0;
@@ -973,7 +980,8 @@ void projector()
 	{
 		imshow("Show",gry[i]);
 		
-		if(pressed_key == 10){
+//		if(pressed_key == 10){
+		if(pressed_key == 13){
 			i++;
 		}
 		
@@ -983,144 +991,144 @@ void projector()
 }
 
 ///
-void calibrar_reconstruir_mouse(bool cm2)
-{
-	namedWindow("Camara 1", 1);
-	namedWindow("Camara 2", 1);
-	setMouseCallback("Camara 1", callback_pc1,NULL);
-	setMouseCallback("Camara 2", callback_pc2,NULL);
-	
-	VideoCapture cap1("http://192.168.1.103:4747/mjpegfeed?640x480");
-	VideoCapture cap2("http://192.168.1.103:4747/mjpegfeed?640x480");
-	
-	SL sl(1024,768);
-	Mat frame1,frame2;
-	
-	cout<<"Capturar Planilla ... "<<endl;
-	int pressed_key = 0; 
-	while(pressed_key != 27)
-	{
-		cap1 >> frame1;  // Capturar el frame actual de la camara.
-		
-		for(int j=0;j<ind1;j++) 
-		{
-			Point2f pc1;
-			pc1.x = c1.at<float>(j,0);
-			pc1.y = c1.at<float>(j,1);
-			
-			circle(frame1,pc1,5,Scalar(255));
-		}
-		
-		imshow("Camara 1", frame1);
-		
-		
-		if(cm2)
-		{
-			cap2 >> frame2;  // Capturar el frame actual de la camara.
-			
-			for(int j=0;j<ind2;j++) 
-			{
-				Point2f pc2;
-				pc2.x = c2.at<float>(j,0);
-				pc2.y = c2.at<float>(j,1);
-				
-				circle(frame2,pc2,5,Scalar(255));
-			}
-			
-			imshow("Camara 2", frame2);
-		}
-		
-		pressed_key  = waitKey(5);
-	}
-	
-	setMouseCallback("Camara 1", NULL, NULL);
-	
-	if(cm2)
-		setMouseCallback("Camara 2", NULL, NULL);
-	
-	cout<<"Capturar Planilla ... Terminado "<<endl;
-	cout<< "Calibrando Camaras... "<<endl;
-	vector<Mat> vc1, vc2;
-	
-	vc1 = sl.plane_base_calibration(cam1);
-	
-	if(cm2)
-		vc2 = sl.plane_base_calibration(cam2);
-	
-	cout<< "Calibrando Camaras... Terminado"<<endl<<endl;
-	
-	cout<<"Visualizacion 3D... "<<endl;	
-	viz::Viz3d window("Coordinate Frame");
-	window.setWindowSize(Size(500,500));
-	window.setWindowPosition(Point(150,150));
-	window.setBackgroundColor(); // black by default
-	
-	
-	/// Systema de coordenadas del mundo
-	viz::WLine axisX(Point3f(0.0f,0.0f,0.0f), Point3f(1.0f,0.0f,0.0f), Scalar(255,0,0));
-	axisX.setRenderingProperty(viz::LINE_WIDTH, 1.0);
-	window.showWidget("Orig X", axisX);
-	
-	viz::WLine axisY(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,1.0f,0.0f), Scalar(0,0,255));
-	axisY.setRenderingProperty(viz::LINE_WIDTH, 1.0);
-	window.showWidget("Orig Y", axisY);
-	
-	viz::WLine axisZ(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,0.0f,1.0f), Scalar(0,255,0));
-	axisZ.setRenderingProperty(viz::LINE_WIDTH, 1.0);
-	window.showWidget("Orig Z", axisZ);
-	
-	if(cm2){
-		
-		int pressed_key=0;
-		while(pressed_key!=27)
-		{
-			cap1 >> frame1;
-			cap2 >> frame2;
-			
-			cout<<pc1.size() << " | " << pc2.size()<<endl;
-			if(pc1.size() == pc2.size()  && pc1.size() > 0 && pc2.size() > 0)
-			{
-				for(int i=0;i<pc1.size();i++) 
-				{
-					
-					Point2f p1, p2;
-					
-					p1.x = pc1[i].at<float>(0,0);
-					p1.y = pc1[i].at<float>(0,1);
-					
-					p2.x = pc2[i].at<float>(0,0);
-					p2.y = pc2[i].at<float>(0,1);
-					
-					circle(frame1,p1,5,Scalar(0,255,0));
-					circle(frame2,p2,5,Scalar(0,255,0));
-					
-					Mat line1 = sl.get_line(vc1[0],vc1[1],pc1[i]);
-					Mat line2 = sl.get_line(vc2[0],vc2[1],pc2[i]);
-					
-					viz::WSphere p( sl.calc_intersection(line1,line2), 0.05f );	
-					
-					ostringstream os;
-					os << i;
-					window.showWidget("P_"+os.str(), p);
-					
-				}			
-			}
-
-			imshow("Camara 1", frame1);
-			imshow("Camara 2", frame2);
-			
-			window.spinOnce();
-			
-			pressed_key = waitKey(5);
-			
-		}
-	}
-	
-	window.spin();
-	
-	setMouseCallback("Camara 1",NULL,NULL);
-	setMouseCallback("Camara 2",NULL,NULL);
-}
+//void calibrar_reconstruir_mouse(bool cm2)
+//{
+//	namedWindow("Camara 1", 1);
+//	namedWindow("Camara 2", 1);
+//	setMouseCallback("Camara 1", callback_pc1,NULL);
+//	setMouseCallback("Camara 2", callback_pc2,NULL);
+//	
+//	VideoCapture cap1("http://192.168.1.103:4747/mjpegfeed?640x480");
+//	VideoCapture cap2("http://192.168.1.103:4747/mjpegfeed?640x480");
+//	
+//	SL sl(1024,768);
+//	Mat frame1,frame2;
+//	
+//	cout<<"Capturar Planilla ... "<<endl;
+//	int pressed_key = 0; 
+//	while(pressed_key != 27)
+//	{
+//		cap1 >> frame1;  // Capturar el frame actual de la camara.
+//		
+//		for(int j=0;j<ind1;j++) 
+//		{
+//			Point2f pc1;
+//			pc1.x = c1.at<float>(j,0);
+//			pc1.y = c1.at<float>(j,1);
+//			
+//			circle(frame1,pc1,5,Scalar(255));
+//		}
+//		
+//		imshow("Camara 1", frame1);
+//		
+//		
+//		if(cm2)
+//		{
+//			cap2 >> frame2;  // Capturar el frame actual de la camara.
+//			
+//			for(int j=0;j<ind2;j++) 
+//			{
+//				Point2f pc2;
+//				pc2.x = c2.at<float>(j,0);
+//				pc2.y = c2.at<float>(j,1);
+//				
+//				circle(frame2,pc2,5,Scalar(255));
+//			}
+//			
+//			imshow("Camara 2", frame2);
+//		}
+//		
+//		pressed_key  = waitKey(5);
+//	}
+//	
+//	setMouseCallback("Camara 1", NULL, NULL);
+//	
+//	if(cm2)
+//		setMouseCallback("Camara 2", NULL, NULL);
+//	
+//	cout<<"Capturar Planilla ... Terminado "<<endl;
+//	cout<< "Calibrando Camaras... "<<endl;
+//	vector<Mat> vc1, vc2;
+//	
+//	vc1 = sl.plane_base_calibration(cam1);
+//	
+//	if(cm2)
+//		vc2 = sl.plane_base_calibration(cam2);
+//	
+//	cout<< "Calibrando Camaras... Terminado"<<endl<<endl;
+//	
+//	cout<<"Visualizacion 3D... "<<endl;	
+//	viz::Viz3d window("Coordinate Frame");
+//	window.setWindowSize(Size(500,500));
+//	window.setWindowPosition(Point(150,150));
+//	window.setBackgroundColor(); // black by default
+//	
+//	
+//	/// Systema de coordenadas del mundo
+//	viz::WLine axisX(Point3f(0.0f,0.0f,0.0f), Point3f(1.0f,0.0f,0.0f), Scalar(255,0,0));
+//	axisX.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig X", axisX);
+//	
+//	viz::WLine axisY(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,1.0f,0.0f), Scalar(0,0,255));
+//	axisY.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig Y", axisY);
+//	
+//	viz::WLine axisZ(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,0.0f,1.0f), Scalar(0,255,0));
+//	axisZ.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig Z", axisZ);
+//	
+//	if(cm2){
+//		
+//		int pressed_key=0;
+//		while(pressed_key!=27)
+//		{
+//			cap1 >> frame1;
+//			cap2 >> frame2;
+//			
+//			cout<<pc1.size() << " | " << pc2.size()<<endl;
+//			if(pc1.size() == pc2.size()  && pc1.size() > 0 && pc2.size() > 0)
+//			{
+//				for(int i=0;i<pc1.size();i++) 
+//				{
+//					
+//					Point2f p1, p2;
+//					
+//					p1.x = pc1[i].at<float>(0,0);
+//					p1.y = pc1[i].at<float>(0,1);
+//					
+//					p2.x = pc2[i].at<float>(0,0);
+//					p2.y = pc2[i].at<float>(0,1);
+//					
+//					circle(frame1,p1,5,Scalar(0,255,0));
+//					circle(frame2,p2,5,Scalar(0,255,0));
+//					
+//					Mat line1 = sl.get_line(vc1[0],vc1[1],pc1[i]);
+//					Mat line2 = sl.get_line(vc2[0],vc2[1],pc2[i]);
+//					
+//					viz::WSphere p( sl.calc_intersection(line1,line2), 0.05f );	
+//					
+//					ostringstream os;
+//					os << i;
+//					window.showWidget("P_"+os.str(), p);
+//					
+//				}			
+//			}
+//
+//			imshow("Camara 1", frame1);
+//			imshow("Camara 2", frame2);
+//			
+//			window.spinOnce();
+//			
+//			pressed_key = waitKey(5);
+//			
+//		}
+//	}
+//	
+//	window.spin();
+//	
+//	setMouseCallback("Camara 1",NULL,NULL);
+//	setMouseCallback("Camara 2",NULL,NULL);
+//}
 
 /// 
 void interseccion_prueba()
@@ -1169,8 +1177,8 @@ void interseccion_prueba()
 	window.showWidget("Orig Z", axisZ);
 	
 	/// draw_sys_coord
-	draw_sys_coord(Em1,window);
-	draw_sys_coord(Em2,window);
+//	draw_sys_coord(Em1,window);
+//	draw_sys_coord(Em2,window);
 	
 	/// Draw Point cloud
 	Mat cloud = Mat(pc);
@@ -1209,8 +1217,8 @@ void saving_images(string path_calib, string path_img, string mask_path, VideoCa
 		
 		if(pressed_key == 13) //Enter
 		{
-			save_capture(f1,path_calib+"cam_1\\",i);
-			save_capture(f2,path_calib+"cam_2\\",i);
+//			save_capture(f1,path_calib+"cam_1\\",i);
+//			save_capture(f2,path_calib+"cam_2\\",i);
 			
 			i++;
 		}
@@ -1234,8 +1242,8 @@ void saving_images(string path_calib, string path_img, string mask_path, VideoCa
 		
 		if(pressed_key == 13) //Spacebar
 		{
-			save_capture(f1,mask_path+"cam_1\\",i);
-			save_capture(f2,mask_path+"cam_2\\",i);
+//			save_capture(f1,mask_path+"cam_1\\",i);
+//			save_capture(f2,mask_path+"cam_2\\",i);
 			
 			i++;
 			break;
@@ -1257,8 +1265,8 @@ void saving_images(string path_calib, string path_img, string mask_path, VideoCa
 		
 		if(pressed_key == 13) //Spacebar
 		{
-			save_capture(f1,mask_path+"cam_1\\",i);
-			save_capture(f2,mask_path+"cam_2\\",i);
+//			save_capture(f1,mask_path+"cam_1\\",i);
+//			save_capture(f2,mask_path+"cam_2\\",i);
 			
 			i++;
 			break;
@@ -1267,7 +1275,8 @@ void saving_images(string path_calib, string path_img, string mask_path, VideoCa
 		pressed_key = waitKey(5);
 	}
 	
-	vector<Mat> bin = sl.generate_binary_code_patterns();
+//	vector<Mat> bin = sl.generate_binary_code_patterns();
+	vector<Mat> bin = sl.generate_code_patterns();
 	
 	pressed_key = 0; i = 0;
 	while(pressed_key != 27 && i< bin.size())
@@ -1282,8 +1291,8 @@ void saving_images(string path_calib, string path_img, string mask_path, VideoCa
 
 		if(pressed_key == 13){
 			
-			save_capture(f1,path_img+"cam_bin_1\\",i);
-			save_capture(f2,path_img+"cam_bin_2\\",i);
+//			save_capture(f1,path_img+"cam_bin_1\\",i);
+//			save_capture(f2,path_img+"cam_bin_2\\",i);
 			
 			i++;
 		}
@@ -1291,7 +1300,8 @@ void saving_images(string path_calib, string path_img, string mask_path, VideoCa
 		pressed_key = waitKey(5);
 	}
 	
-	vector<Mat> gry = sl.generate_gray_code_patterns();
+//	vector<Mat> gry = sl.generate_gray_code_patterns();
+	vector<Mat> gry = sl.generate_code_patterns(GRAY);
 	
 	pressed_key =0; i = 0;
 	while(pressed_key != 27 && i< bin.size())
@@ -1305,8 +1315,8 @@ void saving_images(string path_calib, string path_img, string mask_path, VideoCa
 
 		if(pressed_key == 13){
 			
-			save_capture(f1,path_img+"cam_gray_1\\",i);
-			save_capture(f2,path_img+"cam_gray_2\\",i);
+//			save_capture(f1,path_img+"cam_gray_1\\",i);
+//			save_capture(f2,path_img+"cam_gray_2\\",i);
 			
 			i++;
 		}
@@ -1316,208 +1326,371 @@ void saving_images(string path_calib, string path_img, string mask_path, VideoCa
 	
 }
 
-void load_images(string path_calib, string path_img, string mask_path)
+//void load_images(string path_calib, string path_img, string mask_path)
+//{
+//	SL sl(128,128);
+//	unsigned char pressed_key =0;
+//	int i;
+//	
+//	vector<Mat> calib_c1,calib_c2;
+//	for (i=0;i<5;i++)
+//	{
+//		ostringstream os;
+//		os<<i;
+//		calib_c1.push_back(imread(path_calib+"cam_1\\cap_"+os.str()+".png",CV_LOAD_IMAGE_GRAYSCALE));
+//		calib_c2.push_back(imread(path_calib+"cam_2\\cap_"+os.str()+".png",CV_LOAD_IMAGE_GRAYSCALE));
+//	}
+//	
+//	namedWindow("Camara 1",1);
+//	setMouseCallback("Camara 1", callback_c1, NULL);
+//	
+//	namedWindow("Camara 2",1);
+//	setMouseCallback("Camara 2", callback_c2, NULL);
+//	
+//	cout<<"Capturar Planilla ... "<<endl;
+//	pressed_key = 0; i =0;
+//	while(pressed_key != 27 && i<5)
+//	{
+//		
+//		for(int j=0;j<ind1;j++) 
+//		{
+//			Point2f pc1;
+//			pc1.x = c1.at<float>(j,0);
+//			pc1.y = c1.at<float>(j,1);
+//			
+//			circle(calib_c1[i],pc1,5,Scalar(255));
+//		}
+//		
+//		for(int j=0;j<ind2;j++) 
+//		{
+//			Point2f pc2;
+//			pc2.x = c2.at<float>(j,0);
+//			pc2.y = c2.at<float>(j,1);
+//			
+//			circle(calib_c2[i],pc2,5,Scalar(255));
+//		}
+//		
+//		imshow("Camara 1", calib_c1[i]);		
+//		imshow("Camara 2", calib_c2[i]);		
+//		//		if (pressed_key == 10)
+//		if (pressed_key == 13)
+//		{
+//			i++;
+//		}
+//		
+//		pressed_key  = waitKey(5);
+//	}
+//	
+//	setMouseCallback("Camara 1", NULL, NULL);
+//	
+//	setMouseCallback("Camara 2", NULL, NULL);
+//	
+//	cout<<"Capturar Planilla ... Terminado "<<endl;
+//	///
+//	///
+//	cout<< "Calibrando Camaras... "<<endl;
+//	vector<Mat> vc1, vc2;
+//	
+//	vc1 = sl.plane_base_calibration(cam1);
+//	vc2 = sl.plane_base_calibration(cam2);
+//	
+//	cout<< "Calibrando Camaras... Terminado"<<endl<<endl;
+//	
+//	///
+//	///
+//	Mat m_sombra_c1, m_sombra_c2;
+//	m_sombra_c1 = imread(mask_path+"cam_1\\cap_02.png",CV_LOAD_IMAGE_GRAYSCALE);
+//	m_sombra_c1 = imread(mask_path+"cam_1\\cap_12.png",CV_LOAD_IMAGE_GRAYSCALE) - m_sombra_c1;
+//	
+//	m_sombra_c2 = imread(mask_path+"cam_2\\cap_02.png",CV_LOAD_IMAGE_GRAYSCALE);
+//	m_sombra_c2 = imread(mask_path+"cam_2\\cap_12.png",CV_LOAD_IMAGE_GRAYSCALE) - m_sombra_c2;
+//	
+//	///
+//	cout<< "Binarizacion Mascara... "<<endl;
+//	int sl_c1 = 0, sh_c1 = 255;
+//	int sl_c2 = 0, sh_c2 = 255;
+//	
+//	// LOW | HIGH
+//	createTrackbar("Sombra_l","Camara 1",&sl_c1,255,NULL);
+//	createTrackbar("Sombra_h","Camara 1",&sh_c1,255,NULL);
+//	
+//	createTrackbar("Sombra_l","Camara 2",&sl_c2,255,NULL);
+//	createTrackbar("Sombra_h","Camara 2",&sh_c2,255,NULL);
+//	
+//	Mat sl_1, sh_1, sl_2, sh_2;
+//	Mat sh1, sh2;
+//	Mat mask_c1, mask_c2;
+//	
+//	pressed_key = 0;
+//	while(pressed_key != 27)
+//	{
+//		
+//		/// Threshold
+//		
+//		// Sombra
+//		threshold(m_sombra_c1,sl_1,sl_c1,255, THRESH_BINARY);
+//		threshold(m_sombra_c1,sh_1,sh_c1,255, THRESH_BINARY_INV);
+//		
+//		/// Mascara
+//		bitwise_and(sl_1,sh_1,mask_c1);
+//		
+//		/// Trackbar Posicion
+//		sl_c1 = getTrackbarPos("Sombra_l", "Camara 1");
+//		sh_c1 = getTrackbarPos("Sombra_h", "Camara 1");
+//		
+//		/// Mostrar Mascaras Finales
+//		imshow("Camara 1", mask_c1);
+//		
+//		/// Threshold
+//		// Sombra
+//		threshold(m_sombra_c2,sl_2,sl_c2,255, THRESH_BINARY);
+//		threshold(m_sombra_c2,sh_2,sh_c2,255, THRESH_BINARY_INV);
+//		
+//		/// Mascara
+//		bitwise_and(sl_2,sh_2,mask_c2);
+//		
+//		/// Trackbar Posicion
+//		sl_c2 = getTrackbarPos("Sombra_l", "Camara 2");
+//		sh_c2 = getTrackbarPos("Sombra_h", "Camara 2");
+//		
+//		imshow("Camara 2", mask_c2);
+//		
+//		pressed_key = waitKey(5);
+//	
+//	}
+//	///
+//	///
+//	vector<Mat> cap_c1, cap_c2;
+//	
+//	for(int i=0;i<28;i++) 
+//	{ 
+//		ostringstream os;
+//		os<<i;
+//		cap_c1.push_back(imread(path_img+"cam_bin_1\\cap_"+os.str()+".png",CV_LOAD_IMAGE_GRAYSCALE));
+//		cap_c2.push_back(imread(path_img+"cam_bin_2\\cap_"+os.str()+".png",CV_LOAD_IMAGE_GRAYSCALE));
+//	}
+//	
+//	/// Decodificacion
+//	Mat t1, t2;
+//	cout<< "Decodificar Patrones... "<<endl;
+//
+//	t1 = sl.decode_captured_patterns(cap_c1,mask_c1);
+//	t2 = sl.decode_captured_patterns(cap_c2,mask_c2);
+//	
+//	cout<< "Decodificar Patrones... Terminado"<<endl<<endl;
+//	///--------------------------------------------------------------------------------------------------------
+//	
+//	int N = t1.size().height;
+//	Mat inters;
+//	vector<Point3f> pc;
+//	
+//	cout<<"Reconstruccion... "<<endl;
+//	
+////	Mat cloud = Mat::zeros(t1.size().height,1,CV_32FC3);
+//	for(int i=0;i<N;i++) 
+//	{
+//		int row_1 = t1.at<int>(i,0);
+//		int col_1 = t1.at<int>(i,1);
+//		int cant_1 = t1.at<int>(i,2);
+//		
+//		int row_2 = t2.at<int>(i,0);
+//		int col_2 = t2.at<int>(i,1);
+//		int cant_2 = t2.at<int>(i,2);
+//		
+//		if (cant_1 && cant_2){					
+//			row_1 /= cant_1;
+//			col_1 /= cant_1;
+//			
+//			row_2 /= cant_2;
+//			col_2 /= cant_2;
+//			
+//			Mat p1 = (
+//					  Mat_<float>(1,3) << 
+//					  (float) row_1, (float) col_1, 1.0f
+//					  );
+//			
+//			Mat p2 = (
+//					  Mat_<float>(1,3) << 
+//					  (float) row_2, (float) col_2, 1.0f
+//					  );
+//			
+//			// Orden de elementos: Pendiente | Offset
+//			Mat line1 = sl.get_line(vc1[0],vc1[1],p1);
+//			Mat line2 = sl.get_line(vc2[0],vc2[1],p2);
+//			
+//			
+////			cloud.at<float>(i,0) = sl.calc_intersection(line1,line2);
+//			pc.push_back( sl.calc_intersection(line1,line2) );
+//			
+//		}
+//		
+//	}
+//	Mat cloud = Mat(pc);
+//	
+//	cout<<"Reconstruccion... Terminado"<<endl<<endl;
+//	
+//	///-----------------------------------------------------------------------------
+//	/// Vizualisacion 3D
+//	///-----------------------------------------------------------------------------
+//	
+//	cout<<"Visualizacion 3D... "<<endl;	
+//	viz::Viz3d window("Coordinate Frame");
+//	window.setWindowSize(Size(500,500));
+//	window.setWindowPosition(Point(150,150));
+//	window.setBackgroundColor(); // black by default
+//	
+//	
+//	/// Systema de coordenadas del mundo
+//	viz::WLine axisX(Point3f(0.0f,0.0f,0.0f), Point3f(1.0f,0.0f,0.0f), Scalar(255,0,0));
+//	axisX.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig X", axisX);
+//	
+//	viz::WLine axisY(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,1.0f,0.0f), Scalar(0,0,255));
+//	axisY.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig Y", axisY);
+//	
+//	viz::WLine axisZ(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,0.0f,1.0f), Scalar(0,255,0));
+//	axisZ.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+//	window.showWidget("Orig Z", axisZ);
+//	
+//	/// Add coordinate axes
+//	draw_sys_coord(vc1[1], window);
+//	
+//	draw_sys_coord(vc2[1], window);
+//	
+//	/// Draw Point cloud
+//	
+////	for(int i=0;i<pc.size();i++) 
+////	{
+////		ostringstream os;
+////		os<<i;
+////		
+////		
+////		viz::WSphere p( pc[i], 0.05f );	
+////		window.showWidget("P_"+os.str(), p);
+////	}	
+////	
+//	viz::WCloud nube(cloud);
+//	window.showWidget("cloud",nube);
+//	
+//	imshow("Camara 1", calib_c1[0]);		
+//	imshow("Camara 2", calib_c2[0]);
+//	
+//	window.spin();
+//	
+//	cout<<"Visualizacion 3D... Terminado"<<endl<<endl;
+//	
+//}
+
+///
+void prueba_calib_auto_chessboard(string path_c1, string path_c2)
 {
-	SL sl(128,128);
-	unsigned char pressed_key =0;
-	int i;
+	/// Cargar Imagenes desde archivo
+	vector<Mat> imagenes;
+	Mat color;
+	int img_cant = 5;
+	Size chess_size(7,6);	//cantidad de puntos a encontrar en la tabla:		Ancho/Alto
+	Size gauss_size(11,11);	//paramaetro para la deteccion de los puntos claves y posterior filtrado, establece vecindades y espacio entre features
 	
-	vector<Mat> calib_c1,calib_c2;
-	for (i=0;i<5;i++)
+	for(int i=0;i<img_cant;i++) 
 	{
 		ostringstream os;
-		os<<i;
-		calib_c1.push_back(imread(path_calib+"cam_1\\cap_"+os.str()+".png",CV_LOAD_IMAGE_GRAYSCALE));
-		calib_c2.push_back(imread(path_calib+"cam_2\\cap_"+os.str()+".png",CV_LOAD_IMAGE_GRAYSCALE));
+		os<< i;
+		Mat aux  =  imread(path_c1+"cap_"+os.str()+".png",CV_LOAD_IMAGE_ANYCOLOR);
+//		Mat aux  =  imread(path_c1+"cap_"+os.str()+".png",CV_LOAD_IMAGE_ANYCOLOR);
+		imagenes.push_back(aux);
 	}
 	
-	namedWindow("Camara 1",1);
-	setMouseCallback("Camara 1", callback_c1, NULL);
+	/// Mascara - Para quitar la propaganda del droidcam de las capturas
+//	Mat	mask = Mat::ones(1944,2592,CV_8UC1)*255;
 	
-	namedWindow("Camara 2",1);
-	setMouseCallback("Camara 2", callback_c2, NULL);
-	
-	cout<<"Capturar Planilla ... "<<endl;
-	pressed_key = 0; i =0;
-	while(pressed_key != 27 && i<5)
+	Mat mask = Mat::ones(480,640,CV_8UC1)*255;
+	for(int i=0;i<15;i++) 
 	{
-		
-		for(int j=0;j<ind1;j++) 
+		for(int j=0;j<640;j++) 
 		{
-			Point2f pc1;
-			pc1.x = c1.at<float>(j,0);
-			pc1.y = c1.at<float>(j,1);
-			
-			circle(calib_c1[i],pc1,5,Scalar(255));
+			mask.at<unsigned char>(i,j) = 0;
 		}
-		
-		for(int j=0;j<ind2;j++) 
-		{
-			Point2f pc2;
-			pc2.x = c2.at<float>(j,0);
-			pc2.y = c2.at<float>(j,1);
-			
-			circle(calib_c2[i],pc2,5,Scalar(255));
-		}
-		
-		imshow("Camara 1", calib_c1[i]);		
-		imshow("Camara 2", calib_c2[i]);		
-		//		if (pressed_key == 10)
-		if (pressed_key == 13)
-		{
-			i++;
-		}
-		
-		pressed_key  = waitKey(5);
 	}
 	
-	setMouseCallback("Camara 1", NULL, NULL);
-	
-	setMouseCallback("Camara 2", NULL, NULL);
-	
-	cout<<"Capturar Planilla ... Terminado "<<endl;
 	///
-	///
-	cout<< "Calibrando Camaras... "<<endl;
-	vector<Mat> vc1, vc2;
+	imagenes[0].copyTo(color);
 	
-	vc1 = sl.plane_base_calibration(cam1);
-	vc2 = sl.plane_base_calibration(cam2);
+	namedWindow("imagen",1);
+	int val = 2050, maximo = 10000;
+	createTrackbar("Threshold","imagen",&val,maximo);
 	
-	cout<< "Calibrando Camaras... Terminado"<<endl<<endl;
-	
-	///
-	///
-	Mat m_sombra_c1, m_sombra_c2;
-	m_sombra_c1 = imread(mask_path+"cam_1\\cap_02.png",CV_LOAD_IMAGE_GRAYSCALE);
-	m_sombra_c1 = imread(mask_path+"cam_1\\cap_12.png",CV_LOAD_IMAGE_GRAYSCALE) - m_sombra_c1;
-	
-	m_sombra_c2 = imread(mask_path+"cam_2\\cap_02.png",CV_LOAD_IMAGE_GRAYSCALE);
-	m_sombra_c2 = imread(mask_path+"cam_2\\cap_12.png",CV_LOAD_IMAGE_GRAYSCALE) - m_sombra_c2;
-	
-	///
-	cout<< "Binarizacion Mascara... "<<endl;
-	int sl_c1 = 0, sh_c1 = 255;
-	int sl_c2 = 0, sh_c2 = 255;
-	
-	// LOW | HIGH
-	createTrackbar("Sombra_l","Camara 1",&sl_c1,255,NULL);
-	createTrackbar("Sombra_h","Camara 1",&sh_c1,255,NULL);
-	
-	createTrackbar("Sombra_l","Camara 2",&sl_c2,255,NULL);
-	createTrackbar("Sombra_h","Camara 2",&sh_c2,255,NULL);
-	
-	Mat sl_1, sh_1, sl_2, sh_2;
-	Mat sh1, sh2;
-	Mat mask_c1, mask_c2;
-	
-	pressed_key = 0;
+	vector<Point2f> features;
+	vector<vector<Point2f>>f;
+	int pressed_key = 0, k=0, val2 = 0;
 	while(pressed_key != 27)
 	{
 		
-		/// Threshold
+		imagenes[(k%img_cant)].copyTo(color);
 		
-		// Sombra
-		threshold(m_sombra_c1,sl_1,sl_c1,255, THRESH_BINARY);
-		threshold(m_sombra_c1,sh_1,sh_c1,255, THRESH_BINARY_INV);
+		val = getTrackbarPos("Threshold","imagen");
 		
-		/// Mascara
-		bitwise_and(sl_1,sh_1,mask_c1);
+		if(val2!=val){
+			features.clear();
+			features = chessboard_features_fix(color, chess_size,gauss_size,(float)val, mask);
+			
+//			Mat copy;
+//			for(int i=25;i<28;i++) 
+//			{
+//				copy = color.clone();
+//				
+//				cout<< features[i]<<endl;
+//				circle(copy,features[i],5,Scalar(0,255,0));
+//				
+//				show_mat(copy,IMAGEN,0);
+//				waitKey(0);
+//			}
+			
+			val2 = val;
+			cout<< "Cantidad de features: "<< features.size() << endl;
+		}
 		
-		/// Trackbar Posicion
-		sl_c1 = getTrackbarPos("Sombra_l", "Camara 1");
-		sh_c1 = getTrackbarPos("Sombra_h", "Camara 1");
+		for(int i =0; i< features.size(); i++)
+		{
+			circle(color,features[i],5,Scalar(0,255,0));
+		}
 		
-		/// Mostrar Mascaras Finales
-		imshow("Camara 1", mask_c1);
-		
-		/// Threshold
-		// Sombra
-		threshold(m_sombra_c2,sl_2,sl_c2,255, THRESH_BINARY);
-		threshold(m_sombra_c2,sh_2,sh_c2,255, THRESH_BINARY_INV);
-		
-		/// Mascara
-		bitwise_and(sl_2,sh_2,mask_c2);
-		
-		/// Trackbar Posicion
-		sl_c2 = getTrackbarPos("Sombra_l", "Camara 2");
-		sh_c2 = getTrackbarPos("Sombra_h", "Camara 2");
-		
-		imshow("Camara 2", mask_c2);
+		imshow("imagen", color);
 		
 		pressed_key = waitKey(5);
-	
-	}
-	///
-	///
-	vector<Mat> cap_c1, cap_c2;
-	
-	for(int i=0;i<28;i++) 
-	{ 
-		ostringstream os;
-		os<<i;
-		cap_c1.push_back(imread(path_img+"cam_bin_1\\cap_"+os.str()+".png",CV_LOAD_IMAGE_GRAYSCALE));
-		cap_c2.push_back(imread(path_img+"cam_bin_2\\cap_"+os.str()+".png",CV_LOAD_IMAGE_GRAYSCALE));
-	}
-	
-	/// Decodificacion
-	Mat t1, t2;
-	cout<< "Decodificar Patrones... "<<endl;
-
-	t1 = sl.decode_captured_patterns(cap_c1,mask_c1);
-	t2 = sl.decode_captured_patterns(cap_c2,mask_c2);
-	
-	cout<< "Decodificar Patrones... Terminado"<<endl<<endl;
-	///--------------------------------------------------------------------------------------------------------
-	
-	int N = t1.size().height;
-	Mat inters;
-	vector<Point3f> pc;
-	
-	cout<<"Reconstruccion... "<<endl;
-	
-//	Mat cloud = Mat::zeros(t1.size().height,1,CV_32FC3);
-	for(int i=0;i<N;i++) 
-	{
-		int row_1 = t1.at<int>(i,0);
-		int col_1 = t1.at<int>(i,1);
-		int cant_1 = t1.at<int>(i,2);
-		
-		int row_2 = t2.at<int>(i,0);
-		int col_2 = t2.at<int>(i,1);
-		int cant_2 = t2.at<int>(i,2);
-		
-		if (cant_1 && cant_2){					
-			row_1 /= cant_1;
-			col_1 /= cant_1;
+		if(pressed_key == 13)
+		{
+			if(!features.empty())
+			{
+				f.push_back(features);
+			}
 			
-			row_2 /= cant_2;
-			col_2 /= cant_2;
-			
-			Mat p1 = (
-					  Mat_<float>(1,3) << 
-					  (float) row_1, (float) col_1, 1.0f
-					  );
-			
-			Mat p2 = (
-					  Mat_<float>(1,3) << 
-					  (float) row_2, (float) col_2, 1.0f
-					  );
-			
-			// Orden de elementos: Pendiente | Offset
-			Mat line1 = sl.get_line(vc1[0],vc1[1],p1);
-			Mat line2 = sl.get_line(vc2[0],vc2[1],p2);
-			
-			
-//			cloud.at<float>(i,0) = sl.calc_intersection(line1,line2);
-			pc.push_back( sl.calc_intersection(line1,line2) );
-			
+			features.clear();
+			val2=0;
+			k++;
 		}
 		
 	}
-	Mat cloud = Mat(pc);
 	
-	cout<<"Reconstruccion... Terminado"<<endl<<endl;
+	cout<<f.size()<<endl;
+	/// La chessboard es de 7x7, entonces tengo 49 puntos para asignar
+	vector<Point2f> chessboard;
+	for(int j=0;j<6;j++)
+	{
+		for(int i=0;i<7;i++) 
+		{
+			chessboard.push_back( Point2f(i,(5-j)) );			
+			
+			cout<< i << " "<< 5-j<< endl;
+		}
+	}
+	
+	SL sl(1024,768);
+	vector<Mat> camera;
+//	for(int i=0;i<f.size();i++) 
+//	{ 			
+		camera = sl.plane_base_calibration( f ,chessboard );
+//	}
 	
 	///-----------------------------------------------------------------------------
 	/// Vizualisacion 3D
@@ -1531,51 +1704,58 @@ void load_images(string path_calib, string path_img, string mask_path)
 	
 	
 	/// Systema de coordenadas del mundo
-	viz::WLine axisX(Point3f(0.0f,0.0f,0.0f), Point3f(1.0f,0.0f,0.0f), Scalar(255,0,0));
+	viz::WLine axisX(Point3f(0.0f,0.0f,0.0f), Point3f(1.0f,0.0f,0.0f), Scalar(255,0,0));	//AZUL
 	axisX.setRenderingProperty(viz::LINE_WIDTH, 1.0);
 	window.showWidget("Orig X", axisX);
 	
-	viz::WLine axisY(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,1.0f,0.0f), Scalar(0,0,255));
+	viz::WLine axisY(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,1.0f,0.0f), Scalar(0,0,255));	//ROJO
 	axisY.setRenderingProperty(viz::LINE_WIDTH, 1.0);
 	window.showWidget("Orig Y", axisY);
 	
-	viz::WLine axisZ(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,0.0f,1.0f), Scalar(0,255,0));
+	viz::WLine axisZ(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,0.0f,1.0f), Scalar(0,255,0));	//VERDE
 	axisZ.setRenderingProperty(viz::LINE_WIDTH, 1.0);
 	window.showWidget("Orig Z", axisZ);
 	
 	/// Add coordinate axes
-	draw_sys_coord(vc1[1], window);
-	
-	draw_sys_coord(vc2[1], window);
-	
-	/// Draw Point cloud
-	
-//	for(int i=0;i<pc.size();i++) 
-//	{
-//		ostringstream os;
-//		os<<i;
-//		
-//		
-//		viz::WSphere p( pc[i], 0.05f );	
-//		window.showWidget("P_"+os.str(), p);
-//	}	
+//	cout<<endl;
+//	show_mat(camera[1]);
+//	waitKey(0);
 //	
+	draw_sys_coord(camera[1], window);
+	draw_sys_coord(camera[2], window);
+	draw_sys_coord(camera[3], window);
+	draw_sys_coord(camera[4], window);
+	
+	/// Reconstruccion
+	vector<Point3f> pc;
+	int c1 = 1, c2 = 3;
+	
+	for(int i=0;i<chess_size.height*chess_size.width;i++) 
+	{
+		
+		Mat p1 = ( Mat_<float>(1,3)<<
+						f[c1][i].x,
+						f[c1][i].y,
+						1.0f			);
+		
+		Mat p2 = ( Mat_<float>(1,3)<<
+						f[c2][i].x,
+						f[c2][i].y,
+						1.0f			);
+		Mat l1 = sl.get_line(camera[0],camera[c1+1], p1);
+		Mat l2 = sl.get_line(camera[0],camera[c2+1], p2);
+		
+		pc.push_back(sl.calc_intersection(l1,l2));
+		
+	}
+	
+	Mat cloud = Mat(pc);
 	viz::WCloud nube(cloud);
 	window.showWidget("cloud",nube);
 	
-	imshow("Camara 1", calib_c1[0]);		
-	imshow("Camara 2", calib_c2[0]);
+//	sl.get_line(camera[0],camera[1],f[0])
 	
 	window.spin();
-	
-	cout<<"Visualizacion 3D... Terminado"<<endl<<endl;
-	
-}
-
-///
-void test_calib_auto_chessboard(string path)
-{
-	
-	
+	waitKey(0);
 	
 }

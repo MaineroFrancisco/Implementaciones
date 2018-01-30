@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 ///		TEST CHESSBOARD COMPLETO
 ///-----------------------------------------------------------------------------
 //	prueba_chessboard("D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Prueba_Completo\\Calib\\cam_2\\");
-	prueba_chessboard("D:\\Facultad\\Proyecto\\Fotos\\11012018\\");
+//	prueba_chessboard("D:\\Facultad\\Proyecto\\Fotos\\11012018\\");
 	
 ///-----------------------------------------------------------------------------
 /// 	TEST FEATURES COMPLETO
@@ -45,7 +45,18 @@ int main(int argc, char** argv)
 //	test_features_completo(org, org2);
 	
 ///-----------------------------------------------------------------------------
+//	projector();
 //	fourier(img);
+	
+///-----------------------------------------------------------------------------
+/// 	TEST COMPLETO
+///-----------------------------------------------------------------------------
+	
+	prueba_calib_auto_chessboard("D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Prueba_Completo\\Calib\\cam_2\\", 
+								 "D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Prueba_Completo\\Calib\\cam_1\\");
+//	prueba_calib_auto_chessboard("D:\\Facultad\\Proyecto\\Fotos\\11012018\\", 
+//								 "D:\\Facultad\\Proyecto\\Implementaciones\\C++\\Imagenes_Prueba\\Prueba_Completo\\Calib\\cam_2\\");
+	
 	
 	waitKey(0);
 	return 0;

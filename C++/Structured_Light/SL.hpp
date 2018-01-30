@@ -9,6 +9,9 @@
 using namespace cv;
 using namespace std;
 
+
+enum cod_mode{BINARY, GRAY};
+
 class SL 
 {
 private:
@@ -45,11 +48,9 @@ public:
 	Mat background_substraction(Mat after_placement, Mat before_placement, unsigned char thresh); // Quizas necesite capturas adicionales para este paso (REVISAR!)
 	Mat background_substraction(VideoCapture cap, unsigned char thresh); // 
 	
-//	vector<Mat> generate_binary_code_patterns(const bool inv_bright = false, const bool shadow_mask = false);
-//	vector<Mat> generate_gray_code_patterns(const bool inv_bright = false, const bool shadow_mask = false);
-	
-	vector<Mat> generate_binary_code_patterns();
-	vector<Mat> generate_gray_code_patterns();
+//	vector<Mat> generate_binary_code_patterns();
+//	vector<Mat> generate_gray_code_patterns();
+	vector<Mat> generate_code_patterns(cod_mode c = BINARY);
 	
 	Mat shadow_mask_filtering(Mat light, Mat dark, unsigned char thresh); // Necesita 2 patterns mas, uno full blanco y otro full negro... 
 	Mat shadow_mask_filtering(VideoCapture cap, unsigned char thresh); // Necesita 2 patterns mas, uno full blanco y otro full negro... 
@@ -65,28 +66,27 @@ public:
 	// Funcion para la calibracion de las Camaras. Todas las correspondencias entre captuas y proyectos
 	//	se pasan dentro de un vector de Mat.
 	///	Sigue el enfoque de Zhang para Closed-Form Solution
-	vector<Mat> plane_base_calibration(vector<Mat> p_corrs);
-	//	loading_calibration_parameters();	// Mas alla de los parametros intrinsecos, es necesario para ubicar la camara en el espacio
-	//	
+//	vector<Mat> plane_base_calibration(vector<Mat> p_corrs);
+	vector<Mat> plane_base_calibration (vector<vector<Point2f>> p_foto, vector<Point2f> p_planilla);
+
 	//	get_disparity_map();			// mierda inutil o cosa importante?
-	//	
-	
+
+	// DEVUELVE LA FORMULA DE LA LINEA QUE VA DEESDE EL ORIGEN DE LA CAMARA HASATA EL PUNTO DE LA FOTOGRAFIA
 	Mat get_line(Mat Im, Mat Em, Mat cam_p);
+	// OBTIENE LA INTERSECCION DE 
 	Point3f calc_intersection(Mat line_1, Mat line_2);
 
 //	reconstruct_point_cloud();		// | existe alternativas a una nube de puntos? hasta que punto es redituable?
 //	
 //	visualize_reconstructed_mesh(); // Revisar opencv Viz, o desligarme de la visualizacion. 
 //	
-//	// Deberia involucrar la reconstruccion de la malla?? Deberia plantearlo como algo opcional??
-//	// Hasta donde sobre este topico puedo involucrar a OpenCV ?? Requerire el uso de algo externo (OpenGL)??
-//	
-//	/// Funciones Opcionales
+	/// Deberia involucrar la reconstruccion de la malla?? Deberia plantearlo como algo opcional??
+	/// Hasta donde sobre este topico puedo involucrar a OpenCV ?? Requerire el uso de algo externo (OpenGL)??
+
+	/// Funciones Opcionales
 //	use_custom_patterns();
 //	generate_default_calibration_patterns();
-//	
-//	execute_calibration(); // Recibiendo las capturas de los patrones de calibracion.
-//	
+
 //	
 	~SL();
 };

@@ -3,7 +3,7 @@
 #include "opencv2/highgui/highgui.hpp"
 
 #include <iostream>
-#include "auxiliares.h"
+//#include "auxiliares.h"
 using namespace std;
 using namespace cv;
 ///-------------------------------------------------------------------------

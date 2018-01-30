@@ -3,6 +3,7 @@
 ///
 //#include "auxiliares.h"
 ///
+
 SL::SL (const unsigned int p_w, const unsigned int p_h)
 {
 	proj_h = p_h;
@@ -18,14 +19,13 @@ SL::~SL()
 	
 }
 
-///--------------------------------------------------------------------------------------------------------
-/// EMPEZAR A COMENTAR WACHO!
-///--------------------------------------------------------------------------------------------------------
 
 
 ///--------------------------------------------------------------------------------------------------------
-/// generate_binary_code_patterns: Genera los patrones a ser projectados siguiendo la codificacion binaria
-/*
+/// generate_code_patterns: Genera los patrones a ser projectados siguiendo la codificacion BINARY|GRAY
+///--------------------------------------------------------------------------------------------------------
+
+/*	BINARY
 Ejemplo: resolucion del projector 1024*768
 
 	nro_columnas_total = log2(1024) = 10			| -> entonces tendre 10 patrones para representar 
@@ -44,8 +44,29 @@ Ejemplo: resolucion del projector 1024*768
 		0 0 0 0 1 1 1 1 	0 0 1 1 0 0 1 1 	0 1 0 1 0 1 0 1 	| ->	0 1 2 3 4 5 6 7
 	
 */
-///--------------------------------------------------------------------------------------------------------
-vector<Mat> SL::generate_binary_code_patterns ( )
+
+/*	GRAY
+Ejemplo: resolucion del projector 1024*768
+
+nro_columnas_total = log2(1024) = 10			| -> entonces tendre 10 patrones para representar 
+nro_filas_total = log2(768) = ceil(9.58) = 10	| 		la codificacion de las filas, y 10 para las columnas
+
+nro_columna (243) = 0010001010	-> entonces, para cada uno de los patrones, 
+donde la columna corresponda al valor 243, el valor en el mismo va
+a ser 1 o 0 dependiendo la posicion del binario que represente
+
+
+8 x 8: Codifico las columnas (8 -> log2(8)=3)
+
+0 0 0 0 1 1 1 1		0 0 1 1 1 1 0 0		0 1 1 0 1 1 0 1 	| ->	0 1 2 3 4 5 6 7
+0 0 0 0 1 1 1 1		0 0 1 1 1 1 0 0		0 1 1 0 1 1 0 1 	| ->	0 1 2 3 4 5 6 7
+0 0 0 0 1 1 1 1		0 0 1 1 1 1 0 0		0 1 1 0 1 1 0 1 	| ->	0 1 2 3 4 5 6 7
+0 0 0 0 1 1 1 1		0 0 1 1 1 1 0 0		0 1 1 0 1 1 0 1 	| ->	0 1 2 3 4 5 6 7
+
+*/
+
+//vector<Mat> SL::generate_binary_code_patterns ()
+vector<Mat> SL::generate_code_patterns (cod_mode c)
 {
 	
 	code_patterns.clear();
@@ -54,7 +75,6 @@ vector<Mat> SL::generate_binary_code_patterns ( )
 	
 	int bit, mask = 1;
 
-	///--------------------------------------------------------------------------------------------------------
 	for(int i=0; i<row_lvl; i++)
 	{
 		
@@ -63,8 +83,15 @@ vector<Mat> SL::generate_binary_code_patterns ( )
 		
 		for(unsigned int j=0; j<proj_h; j++)
 		{
-			
-			bit = (j >> ((row_lvl-1)-i));
+			switch(c)
+			{
+				case BINARY: 
+					bit = (j >> ((row_lvl-1)-i));
+					break;
+				case GRAY:
+					bit = (j xor (j>>1))>>((row_lvl-1)-i);
+					break;
+			}
 			
 			for(unsigned int k=0; k<proj_w; k++)
 			{
@@ -86,88 +113,19 @@ vector<Mat> SL::generate_binary_code_patterns ( )
 		
 		for(int k=0; k<proj_w; k++)
 		{	
-			bit = (k >> ((col_lvl-1)-i));
+//			bit = (k >> ((col_lvl-1)-i));
+			switch(c)
+			{
+			case BINARY: 
+				bit = (k >> ((col_lvl-1)-i));
+				break;
+			case GRAY:
+				bit = (k xor (k>>1))>>((col_lvl-1)-i);
+				break;
+			}
 			
 			for(int j=0; j<proj_h; j++)
 			{
-				temp_img->at<unsigned char>(j,k) = (bit & mask)? white : black; 
-				temp_inv->at<unsigned char>(j,k) = (bit & mask)? black : white; 
-			}
-		}
-		
-		code_patterns.push_back(*temp_img);
-		code_patterns.push_back(*temp_inv);
-	}
-	
-	return code_patterns;
-}
-
-///--------------------------------------------------------------------------------------------------------
-/// generate_gray_code_patterns: Genera los patrones a ser projectados siguiendo la codificacion GRAY (cambia de a 1 bit a la vez)
-/*
-Ejemplo: resolucion del projector 1024*768
-
-nro_columnas_total = log2(1024) = 10			| -> entonces tendre 10 patrones para representar 
-nro_filas_total = log2(768) = ceil(9.58) = 10	| 		la codificacion de las filas, y 10 para las columnas
-
-nro_columna (243) = 0010001010	-> entonces, para cada uno de los patrones, 
-									donde la columna corresponda al valor 243, el valor en el mismo va
-									a ser 1 o 0 dependiendo la posicion del binario que represente
-
-
-8 x 8: Codifico las columnas (8 -> log2(8)=3)
-
-0 0 0 0 1 1 1 1		0 0 1 1 1 1 0 0		0 1 1 0 1 1 0 1 	| ->	0 1 2 3 4 5 6 7
-0 0 0 0 1 1 1 1		0 0 1 1 1 1 0 0		0 1 1 0 1 1 0 1 	| ->	0 1 2 3 4 5 6 7
-0 0 0 0 1 1 1 1		0 0 1 1 1 1 0 0		0 1 1 0 1 1 0 1 	| ->	0 1 2 3 4 5 6 7
-0 0 0 0 1 1 1 1		0 0 1 1 1 1 0 0		0 1 1 0 1 1 0 1 	| ->	0 1 2 3 4 5 6 7
-
-*/
-///--------------------------------------------------------------------------------------------------------
-vector<Mat> SL::generate_gray_code_patterns ( ) 
-{
-	
-	code_patterns.clear();
-	shared_ptr<Mat> temp_img, temp_inv;
-	unsigned char white = 255, black = 0;	//black = 0
-	
-	int bit, mask = 1;
-	
-	///--------------------------------------------------------------------------------------------------------
-	for(int i=0; i<row_lvl; i++)
-	{
-		
-		temp_img = make_shared<Mat>(Mat(proj_h, proj_w, CV_8UC1));
-		temp_inv = make_shared<Mat>(Mat(proj_h, proj_w, CV_8UC1));
-		
-		for(unsigned int j=0; j<proj_h; j++)
-		{
-			bit = (j xor (j>>1))>>((row_lvl-1)-i);
-			
-			for(unsigned int k=0; k<proj_w; k++)
-			{
-				temp_img->at<unsigned char>(j,k) = (bit & mask)? white : black; 				
-				temp_inv->at<unsigned char>(j,k) = (bit & mask)? black : white; 
-			}
-		}
-		
-		code_patterns.push_back(*temp_img);
-		code_patterns.push_back(*temp_inv);
-	}
-	
-	for(int i=0; i<col_lvl; i++) 
-	{
-		
-		temp_img = make_shared<Mat>(Mat(proj_h, proj_w, CV_8UC1));
-		temp_inv = make_shared<Mat>(Mat(proj_h, proj_w, CV_8UC1));
-	
-		for(int k=0; k<proj_w; k++)
-		{	
-			bit = (k xor (k>>1))>>((col_lvl-1)-i);
-			
-			for(int j=0; j<proj_h; j++)
-			{
-
 				temp_img->at<unsigned char>(j,k) = (bit & mask)? white : black; 
 				temp_inv->at<unsigned char>(j,k) = (bit & mask)? black : white; 
 			}
@@ -410,8 +368,10 @@ Mat get_norm_matrix(Mat img)
 	for(int i=0;i<N;i++)
 	{
 		
-		x_mean += img.at<float>(i,0);
-		y_mean += img.at<float>(i,1);
+//		x_mean += img.at<float>(i,0);
+//		y_mean += img.at<float>(i,1);
+		x_mean += img.at<float>(0,i);
+		y_mean += img.at<float>(1,i);
 		
 	}
 	
@@ -442,22 +402,32 @@ Mat get_norm_matrix(Mat img)
 }
 
 
-Mat estimate_homography(Mat img)
+//Mat estimate_homography(Mat img)
+Mat estimate_homography(vector<Point2f> f, vector<Point2f> r)
 {
-	int N = img.size().height;
+//	int N = img.rows;
+	int N = f.size();
 
 	// Nx3 por la coordenada homogenea
-	Mat p_real(N,3,CV_32FC1), foto(N,3,CV_32FC1);
+//	Mat p_real(N,3,CV_32FC1), foto(N,3,CV_32FC1);
+	Mat p_real(3,N,CV_32FC1), foto(3,N,CV_32FC1);
 	
 	for(int i=0;i<N;i++) 
 	{
-		foto.at<float>(i,0) = img.at<float>(i,0);
-		foto.at<float>(i,1) = img.at<float>(i,1);
-		foto.at<float>(i,2) = 1.0f;
 		
-		p_real.at<float>(i,0) = img.at<float>(i,2);
-		p_real.at<float>(i,1) = img.at<float>(i,3);
-		p_real.at<float>(i,2) = 1.0f;
+//		foto.at<float>(i,0) = f[i].x;
+//		foto.at<float>(i,1) = f[i].y;
+//		foto.at<float>(i,2) = 1.0f;
+		foto.at<float>(0,i) = f[i].x;
+		foto.at<float>(1,i) = f[i].y;
+		foto.at<float>(2,i) = 1.0f;
+		
+//		p_real.at<float>(i,0) = r[i].x;
+//		p_real.at<float>(i,1) = r[i].y;
+//		p_real.at<float>(i,2) = 1.0f;
+		p_real.at<float>(0,i) = r[i].x;
+		p_real.at<float>(1,i) = r[i].y;
+		p_real.at<float>(2,i) = 1.0f;
 	}
 	
 	Mat Na = get_norm_matrix(p_real);
@@ -468,15 +438,20 @@ Mat estimate_homography(Mat img)
 	
 	float k;
 	
+	aux = Na*p_real;
+	aux2 = Nb*foto;
+	
 	for(int i=0;i<N;i++) 
 	{
 		k = 2*i;
 		
-		transpose(p_real.row(i),aux);
-		transpose(foto.row(i),aux2);
-		
-		a = Na * aux;
-		b = Nb * aux2;
+//		transpose(p_real.row(i),aux);
+//		transpose(foto.row(i),aux2);
+//		
+//		a = Na * aux;
+//		b = Nb * aux2;
+		a = aux.col(i);
+		b = aux2.col(i);
 		
 		for(int j=0;j<3;j++) 
 		{
@@ -501,8 +476,8 @@ Mat estimate_homography(Mat img)
 //	gauss_jordan(M);
 	
 	Mat U,W,Vt;
-	Vt = gauss_jordan(M);
-//	SVD::compute(M,W,U,Vt, SVD::FULL_UV);
+//	Vt = gauss_jordan(M);
+	SVD::compute(M,W,U,Vt, SVD::FULL_UV);
 //
 	int lst_row = Vt.size().height -1;
 	
@@ -521,7 +496,9 @@ Mat estimate_homography(Mat img)
 	return H;
 }
 
-Mat vij(Mat H, int i , int j)	/// matriz qu enac de la ortogonalidad de la matriz de rotacion, me permite descomponer el producto de la Homografia y la Inversa de los param_intrinsecos(incognitas) para elaborar un sistema de ecuaciones
+/// Matriz que nace de la ortogonalidad de la matriz de rotacion, me permite descomponer el 
+///		producto de la Homografia y la Inversa de los param_intrinsecos(incognitas) para elaborar un sistema de ecuaciones
+Mat vij(Mat H, int i , int j)	
 {
 	Mat v =( Mat_<float>(1,6) <<  
 			H.at<float>(0,i)*H.at<float>(0,j),
@@ -535,8 +512,7 @@ Mat vij(Mat H, int i , int j)	/// matriz qu enac de la ortogonalidad de la matri
 	return v;
 }
 
-
-vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
+vector<Mat> SL::plane_base_calibration (vector<vector<Point2f>> p_foto, vector<Point2f> p_planilla) {
 	// p_corrs : Vector con multiples fotos (mas de 2) de la planilla para calibrar para UNA SOLA CAMARA
 	/*	Formato:
 			Cada elemento del vector corresponde con una fotografia distinta (es decir, de otro angulo).
@@ -546,10 +522,9 @@ vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
 	
 	*/
 	
-	/// FALTA NORMALIZAR... DIVIDIR ESTA MIERDA... SEPARAR ESTILO MATLAB...
-	
 	/// Cosas a usar:
-	int n = p_corrs.size(); //Cantidad de fotografias
+	int n = p_foto.size(); //Cantidad de fotografias
+	cout<< " n: "<<n<<endl;
 	
 	// Matrices y Vectores
 	Mat H[n];									// Matriz de la Homografia.
@@ -607,7 +582,8 @@ vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
 	
 	/// Construyo Matriz para resolver la Homografia, Correspondencias con el plano fotografiado
 	///		
-	Mat act;
+//	Mat act;
+	vector<Point2f> f;
 	cv::Size s_act;
 	
 	float c_x,c_y,pl_x,pl_y;
@@ -615,9 +591,8 @@ vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
 	{
 		int k = 0;
 		
-		act = p_corrs[foto];
-		
-		H[foto] = estimate_homography(act);
+		f = p_foto[foto];
+		H[foto] = estimate_homography(f, p_planilla);
 		
 		/// COMPUTE INTRINSIC Parameters
 		//Columnas: h1 y h2 para una misma H
@@ -629,35 +604,31 @@ vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
 		
 		V.row(2*foto) = v01;
 		v01.copyTo(V.row(2*foto));
+		
 		Mat auxv = v00 - v11;
 		auxv.copyTo(V.row(2*foto+1));
 	}
 	
-//	SVD::compute(V,W1,U1,V1t, SVD::FULL_UV);
-//
+//	b = gauss_jordan(V);
+//	transpose(b,b);
+	
 //	// computar B
-//	cv::Size s_v1t = V1t.size();
+
+	SVD::compute(V,W1,U1,V1t, SVD::FULL_UV);
+	cv::Size s_v1t = V1t.size();
+	int lst_row_1 = V1t.size().height-1;
+
+	b = 
+	(
+		Mat_<float>(6,1) <<
+		V1t.at<float>(lst_row_1,0),
+		V1t.at<float>(lst_row_1,1),
+		V1t.at<float>(lst_row_1,2),
+		V1t.at<float>(lst_row_1,3), 
+		V1t.at<float>(lst_row_1,4), 
+		V1t.at<float>(lst_row_1,5)	
+	);
 	
-//	show_mat(V); cout<<endl;
-	
-	b = gauss_jordan(V);
-	transpose(b,b);
-	
-//	show_mat(V1t); cout<<endl;
-//	
-//	int lst_row_1 = V1t.size().height-1;
-//
-//	b = 
-//	(
-//		Mat_<float>(6,1) <<
-//		V1t.at<float>(lst_row_1,0),
-//		V1t.at<float>(lst_row_1,1),
-//		V1t.at<float>(lst_row_1,2),
-//		V1t.at<float>(lst_row_1,3), 
-//		V1t.at<float>(lst_row_1,4), 
-//		V1t.at<float>(lst_row_1,5)	
-//	);
-//	
 	if (b.at<float>(0,0) < 0 || b.at<float>(2,0) < 0 || b.at<float>(5,0) < 0 )
 	{
 		b = -1*b;
@@ -673,9 +644,6 @@ vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
 		- b.at<float>(2,0)*b.at<float>(3,0)*b.at<float>(3,0);
 	
 	d =   b.at<float>(0,0)*b.at<float>(2,0) - b.at<float>(1,0)*b.at<float>(1,0);
-	
-	// 
-//	float step1 = d*b.at<float>(0,0);
 	
 	alpha 	=	sqrt(abs(w/(d*b.at<float>(0,0))));
 	beta	=	sqrt(abs((w/(d*d))*b.at<float>(0,0)));
@@ -695,10 +663,10 @@ vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
 	);
 	
 //	cout<<"Im: "; show_mat(I);  cout<<endl;
-	
+
 	Mat Iinv = I.inv();
 	
-	/// Calcular Parametros Extrinsicos. x camara
+	/// Calcular Parametros Extrinsicos. Por camara
 	
 	vector<Mat> P;
 	P.push_back(I);
@@ -737,6 +705,9 @@ vector<Mat> SL::plane_base_calibration (vector<Mat> p_corrs) {
 		
 		P.push_back(*temp_img);
 	}
+	
+//	show_mat(P[1]);
+//	waitKey(0);
 	
 	return P;
 }
