@@ -1,5 +1,6 @@
 #ifndef SL_H
 #define SL_H
+
 #include <vector>
 //#include <iostream>
 #include <memory>
@@ -88,8 +89,9 @@ public:
 //	generate_default_calibration_patterns();
 
 //	
+	Mat get_fundamental_matrix(vector<Point2f> c1, vector<Point2f> c2 );
+	vector<Mat> rectification(vector<Mat> cam1, vector<Mat> cam2);
 	~SL();
 };
 
 #endif
-

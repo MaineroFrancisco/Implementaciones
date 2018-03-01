@@ -1,14 +1,14 @@
-
-#include <vector>
-
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include "chessboard.hpp"
+#include "auxiliares.h"
 #include "SL.hpp"
-//#include "auxiliares.h"
+#include "chessboard.hpp"
+
+#include <vector>
+
 using namespace std;
 using namespace cv;
 
@@ -295,11 +295,6 @@ void test_features_completo(Mat org, Mat org2)
 	Mat img, img2;
 	cvtColor(org, img, CV_BGR2GRAY);
 	cvtColor(org2, img2, CV_BGR2GRAY);
-	
-	//	Mat img = imread("D:\\Facultad\\Proyecto\\Fotos\\11012018\\cap_6.png",CV_LOAD_IMAGE_GRAYSCALE );
-	//	Mat img2 = imread("D:\\Facultad\\Proyecto\\Fotos\\11012018\\cap_5.png",CV_LOAD_IMAGE_GRAYSCALE );
-	//	Mat img = imread("C:\\Users\\Fran\\Desktop\\test_1.png",CV_LOAD_IMAGE_GRAYSCALE );
-	//	Mat img2 = imread("C:\\Users\\Fran\\Desktop\\test_2.png",CV_LOAD_IMAGE_GRAYSCALE );
 	
 	Mat mask = Mat::ones(480,640,CV_8UC1)*255;
 	for(int i=0;i<15;i++) 
@@ -1200,131 +1195,131 @@ void interseccion_prueba()
 }
 
 ///
-void saving_images(string path_calib, string path_img, string mask_path, VideoCapture c1, VideoCapture c2)
-{
-	SL sl(128,128);
-	unsigned char pressed_key =0;
-	int i =0;
-	
-	Mat f1,f2;
-	
-	while(pressed_key !=27 )
-	{
-		c1>>f1;
-		c2>>f2;
-		imshow("Camara 1", f1);
-		imshow("Camara 2", f2);
-		
-		if(pressed_key == 13) //Enter
-		{
-//			save_capture(f1,path_calib+"cam_1\\",i);
-//			save_capture(f2,path_calib+"cam_2\\",i);
-			
-			i++;
-		}
-		
-		pressed_key = waitKey(5);
-	}
-	
-	namedWindow("Show",CV_WINDOW_NORMAL);
-	setWindowProperty("Show",CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
-	
-	Mat dark = Mat::zeros(1024,768,CV_8UC1);
-	
-	imshow("Show",dark);
-	pressed_key = 0; i = 0;
-	while(pressed_key !=27 )
-	{
-		c1>>f1;
-		c2>>f2;
-		imshow("Camara 1", f1);
-		imshow("Camara 2", f2);
-		
-		if(pressed_key == 13) //Spacebar
-		{
-//			save_capture(f1,mask_path+"cam_1\\",i);
-//			save_capture(f2,mask_path+"cam_2\\",i);
-			
-			i++;
-			break;
-		}
-		
-		pressed_key = waitKey(5);
-	}
-	
-	Mat light = Mat::ones(1024,768,CV_8UC1)*255;
-	
-	imshow("Show",light);
-	pressed_key = 0;
-	while(pressed_key !=27 )
-	{
-		c1>>f1;
-		c2>>f2;
-		imshow("Camara 1", f1);
-		imshow("Camara 2", f2);
-		
-		if(pressed_key == 13) //Spacebar
-		{
-//			save_capture(f1,mask_path+"cam_1\\",i);
-//			save_capture(f2,mask_path+"cam_2\\",i);
-			
-			i++;
-			break;
-		}
-		
-		pressed_key = waitKey(5);
-	}
-	
-//	vector<Mat> bin = sl.generate_binary_code_patterns();
-	vector<Mat> bin = sl.generate_code_patterns();
-	
-	pressed_key = 0; i = 0;
-	while(pressed_key != 27 && i< bin.size())
-	{
-		imshow("Show",bin[i]);
-		
-		c1>>f1;
-		c2>>f2;
-		
-		imshow("Camara 1", f1);
-		imshow("Camara 2", f2);
-
-		if(pressed_key == 13){
-			
-//			save_capture(f1,path_img+"cam_bin_1\\",i);
-//			save_capture(f2,path_img+"cam_bin_2\\",i);
-			
-			i++;
-		}
-		
-		pressed_key = waitKey(5);
-	}
-	
-//	vector<Mat> gry = sl.generate_gray_code_patterns();
-	vector<Mat> gry = sl.generate_code_patterns(GRAY);
-	
-	pressed_key =0; i = 0;
-	while(pressed_key != 27 && i< bin.size())
-	{
-		imshow("Show",gry[i]);
-		c1>>f1;
-		c2>>f2;
-		
-		imshow("Camara 1", f1);
-		imshow("Camara 2", f2);
-
-		if(pressed_key == 13){
-			
-//			save_capture(f1,path_img+"cam_gray_1\\",i);
-//			save_capture(f2,path_img+"cam_gray_2\\",i);
-			
-			i++;
-		}
-		
-		pressed_key = waitKey(5);
-	}
-	
-}
+//////void saving_images(string path_calib, string path_img, string mask_path, VideoCapture c1, VideoCapture c2)
+//////{
+//////	SL sl(128,128);
+//////	unsigned char pressed_key =0;
+//////	int i =0;
+//////	
+//////	Mat f1,f2;
+//////	
+//////	while(pressed_key !=27 )
+//////	{
+//////		c1>>f1;
+//////		c2>>f2;
+//////		imshow("Camara 1", f1);
+//////		imshow("Camara 2", f2);
+//////		
+//////		if(pressed_key == 13) //Enter
+//////		{
+////////			save_capture(f1,path_calib+"cam_1\\",i);
+////////			save_capture(f2,path_calib+"cam_2\\",i);
+//////			
+//////			i++;
+//////		}
+//////		
+//////		pressed_key = waitKey(5);
+//////	}
+//////	
+//////	namedWindow("Show",CV_WINDOW_NORMAL);
+//////	setWindowProperty("Show",CV_WND_PROP_FULLSCREEN,CV_WINDOW_FULLSCREEN);
+//////	
+//////	Mat dark = Mat::zeros(1024,768,CV_8UC1);
+//////	
+//////	imshow("Show",dark);
+//////	pressed_key = 0; i = 0;
+//////	while(pressed_key !=27 )
+//////	{
+//////		c1>>f1;
+//////		c2>>f2;
+//////		imshow("Camara 1", f1);
+//////		imshow("Camara 2", f2);
+//////		
+//////		if(pressed_key == 13) //Spacebar
+//////		{
+////////			save_capture(f1,mask_path+"cam_1\\",i);
+////////			save_capture(f2,mask_path+"cam_2\\",i);
+//////			
+//////			i++;
+//////			break;
+//////		}
+//////		
+//////		pressed_key = waitKey(5);
+//////	}
+//////	
+//////	Mat light = Mat::ones(1024,768,CV_8UC1)*255;
+//////	
+//////	imshow("Show",light);
+//////	pressed_key = 0;
+//////	while(pressed_key !=27 )
+//////	{
+//////		c1>>f1;
+//////		c2>>f2;
+//////		imshow("Camara 1", f1);
+//////		imshow("Camara 2", f2);
+//////		
+//////		if(pressed_key == 13) //Spacebar
+//////		{
+////////			save_capture(f1,mask_path+"cam_1\\",i);
+////////			save_capture(f2,mask_path+"cam_2\\",i);
+//////			
+//////			i++;
+//////			break;
+//////		}
+//////		
+//////		pressed_key = waitKey(5);
+//////	}
+//////	
+////////	vector<Mat> bin = sl.generate_binary_code_patterns();
+//////	vector<Mat> bin = sl.generate_code_patterns();
+//////	
+//////	pressed_key = 0; i = 0;
+//////	while(pressed_key != 27 && i< bin.size())
+//////	{
+//////		imshow("Show",bin[i]);
+//////		
+//////		c1>>f1;
+//////		c2>>f2;
+//////		
+//////		imshow("Camara 1", f1);
+//////		imshow("Camara 2", f2);
+//////
+//////		if(pressed_key == 13){
+//////			
+////////			save_capture(f1,path_img+"cam_bin_1\\",i);
+////////			save_capture(f2,path_img+"cam_bin_2\\",i);
+//////			
+//////			i++;
+//////		}
+//////		
+//////		pressed_key = waitKey(5);
+//////	}
+//////	
+////////	vector<Mat> gry = sl.generate_gray_code_patterns();
+//////	vector<Mat> gry = sl.generate_code_patterns(GRAY);
+//////	
+//////	pressed_key =0; i = 0;
+//////	while(pressed_key != 27 && i< bin.size())
+//////	{
+//////		imshow("Show",gry[i]);
+//////		c1>>f1;
+//////		c2>>f2;
+//////		
+//////		imshow("Camara 1", f1);
+//////		imshow("Camara 2", f2);
+//////
+//////		if(pressed_key == 13){
+//////			
+////////			save_capture(f1,path_img+"cam_gray_1\\",i);
+////////			save_capture(f2,path_img+"cam_gray_2\\",i);
+//////			
+//////			i++;
+//////		}
+//////		
+//////		pressed_key = waitKey(5);
+//////	}
+//////	
+//////}
 
 //void load_images(string path_calib, string path_img, string mask_path)
 //{
@@ -1675,11 +1670,13 @@ void prueba_calib_auto_chessboard(string path_c1, string path_c2)
 	cout<<f.size()<<endl;
 	/// La chessboard es de 7x7, entonces tengo 49 puntos para asignar
 	vector<Point2f> chessboard;
-	for(int j=0;j<6;j++)
+	vector<Point3f> chess_cloud;
+	for(int j=0;j<chess_size.height;j++)
 	{
-		for(int i=0;i<7;i++) 
+		for(int i=0;i<chess_size.width;i++) 
 		{
-			chessboard.push_back( Point2f(i,(5-j)) );			
+			chessboard.push_back( Point2f(i,((chess_size.height-1)-j)) );			
+			chess_cloud.push_back( Point3f(i,((chess_size.height-1)-j),0) );			
 			
 			cout<< i << " "<< 5-j<< endl;
 		}
@@ -1721,14 +1718,18 @@ void prueba_calib_auto_chessboard(string path_c1, string path_c2)
 //	show_mat(camera[1]);
 //	waitKey(0);
 //	
-	draw_sys_coord(camera[1], window);
-	draw_sys_coord(camera[2], window);
-	draw_sys_coord(camera[3], window);
-	draw_sys_coord(camera[4], window);
+	for(int i=1;i<camera.size();i++)
+	{
+		draw_sys_coord(camera[i], window);
+	}
+//	draw_sys_coord(camera[1], window);
+//	draw_sys_coord(camera[2], window);
+//	draw_sys_coord(camera[3], window);
+//	draw_sys_coord(camera[4], window);
 	
 	/// Reconstruccion
 	vector<Point3f> pc;
-	int c1 = 1, c2 = 3;
+	int c1 = 1, c2 = 2;
 	
 	for(int i=0;i<chess_size.height*chess_size.width;i++) 
 	{
@@ -1750,10 +1751,302 @@ void prueba_calib_auto_chessboard(string path_c1, string path_c2)
 	}
 	
 	Mat cloud = Mat(pc);
+	Mat real = Mat(chess_cloud);
 	viz::WCloud nube(cloud);
+	viz::WCloud nube_real(real,viz::Color(0,255,0));
 	window.showWidget("cloud",nube);
+	window.showWidget("Puntos reales",nube_real);
 	
+	
+	Mat error;
+	pow(cloud - real,2, error);
+	double err=0;
+	
+	for(int i=0;i<error.rows;i++) 
+	{
+		for(int j=0;j<error.cols;j++) 
+		{
+			err+=error.at<float>(i,j);
+		}
+	}
+	err = err/(error.rows*error.cols);
+	
+	cout<<endl;
+	cout<< "ERROR CUADRATICO: "<< err<<endl;
 //	sl.get_line(camera[0],camera[1],f[0])
+	
+	window.spin();
+	waitKey(0);
+	
+}
+
+
+///
+
+//static int pct_id = 0;
+void guardar_foto(string path, Mat img, int cam=0, int pct_id=0)
+{
+	
+	ostringstream capture_id;
+	capture_id << cam;
+	capture_id << "_";
+	capture_id << pct_id;
+//	pct_id++;
+	
+	imwrite(path + "\\c"+ capture_id.str()+".png", img);
+}
+
+void dos_camaras(int ip1, int ip2, string path)
+{
+	ostringstream o1, o2;
+	o1<<ip1;
+	o2<<ip2;
+	VideoCapture c1("http://192.168.1."+o1.str()+":4747/mjpegfeed?640x480");
+	VideoCapture c2("http://192.168.1."+o2.str()+":4747/mjpegfeed?640x480");
+	
+	int key=0, pct_1 = 0, pct_2 = 0;
+	Mat im1, im2;
+	while(key!=27)
+	{
+		c1>>im1;
+		
+//		Mat inv_y = (Mat_<float>(2,3)<<	// la camara estaba dada vuelta
+//					 1.0f,0.0f,0.0f,
+//					 0.0f,-1.0f,im1.rows
+//					 );
+//		warpAffine( im1, im1, inv_y, im1.size() );
+		
+		
+		c2>>im2;
+		
+		imshow("Cam1", im1);
+		imshow("Cam2", im2);
+//		// ENTER, CAMARA 1
+//		if(key == 13)
+//		{
+//			guardar_foto(path,im1,1,pct_1);
+//			pct_1++;
+//		}
+//		
+//		//BARRA ESPACIADORA, CAMARA 2
+//		if(key == 32)
+//		{
+//			guardar_foto(path,im2,2, pct_2);
+//			pct_2++;
+//		}
+		// ENTER, CAMARA 1
+		if(key == 13)
+		{
+			guardar_foto(path,im1,1,pct_1);
+			pct_1++;
+			
+			guardar_foto(path,im2,2, pct_2);
+			pct_2++;
+		}
+		
+		key=waitKey(15);
+	}
+}
+
+///
+/// TODO JUNTO
+///
+void prueba_todo_junto(string path_c1, string path_c2)
+{
+	/// Cargar Imagenes desde archivo
+	vector<Mat> imagenes;
+	Mat color;
+	int img_cant = 5;
+	Size chess_size(7,6);	//cantidad de puntos a encontrar en la tabla:		Ancho/Alto
+	Size gauss_size(11,11);	//paramaetro para la deteccion de los puntos claves y posterior filtrado, establece vecindades y espacio entre features
+	
+	for(int i=0;i<img_cant;i++) 
+	{
+		ostringstream os;
+		os<< i;
+		Mat aux  =  imread(path_c1+"cap_"+os.str()+".png",CV_LOAD_IMAGE_ANYCOLOR);
+		//		Mat aux  =  imread(path_c1+"cap_"+os.str()+".png",CV_LOAD_IMAGE_ANYCOLOR);
+		imagenes.push_back(aux);
+	}
+	
+	/// Mascara - Para quitar la propaganda del droidcam de las capturas
+	//	Mat	mask = Mat::ones(1944,2592,CV_8UC1)*255;
+	
+	Mat mask = Mat::ones(480,640,CV_8UC1)*255;
+	for(int i=0;i<15;i++) 
+	{
+		for(int j=0;j<640;j++) 
+		{
+			mask.at<unsigned char>(i,j) = 0;
+		}
+	}
+	
+	///
+	imagenes[0].copyTo(color);
+	
+	namedWindow("imagen",1);
+	int val = 2050, maximo = 10000;
+	createTrackbar("Threshold","imagen",&val,maximo);
+	
+	vector<Point2f> features;
+	vector<vector<Point2f>>f;
+	int pressed_key = 0, k=0, val2 = 0;
+	while(pressed_key != 27)
+	{
+		
+		imagenes[(k%img_cant)].copyTo(color);
+		
+		val = getTrackbarPos("Threshold","imagen");
+		
+		if(val2!=val){
+			features.clear();
+			features = chessboard_features_fix(color, chess_size,gauss_size,(float)val, mask);
+			
+			//			Mat copy;
+			//			for(int i=25;i<28;i++) 
+			//			{
+			//				copy = color.clone();
+			//				
+			//				cout<< features[i]<<endl;
+			//				circle(copy,features[i],5,Scalar(0,255,0));
+			//				
+			//				show_mat(copy,IMAGEN,0);
+			//				waitKey(0);
+			//			}
+			
+			val2 = val;
+			cout<< "Cantidad de features: "<< features.size() << endl;
+		}
+		
+		for(int i =0; i< features.size(); i++)
+		{
+			circle(color,features[i],5,Scalar(0,255,0));
+		}
+		
+		imshow("imagen", color);
+		
+		pressed_key = waitKey(5);
+		if(pressed_key == 13)
+		{
+			if(!features.empty())
+			{
+				f.push_back(features);
+			}
+			
+			features.clear();
+			val2=0;
+			k++;
+		}
+		
+	}
+	
+	cout<<f.size()<<endl;
+	/// La chessboard es de 7x7, entonces tengo 49 puntos para asignar
+	vector<Point2f> chessboard;
+	vector<Point3f> chess_cloud;
+	for(int j=0;j<chess_size.height;j++)
+	{
+		for(int i=0;i<chess_size.width;i++) 
+		{
+			chessboard.push_back( Point2f(i,((chess_size.height-1)-j)) );			
+			chess_cloud.push_back( Point3f(i,((chess_size.height-1)-j),0) );			
+			
+			cout<< i << " "<< 5-j<< endl;
+		}
+	}
+	
+	SL sl(1024,768);
+	vector<Mat> camera;
+	//	for(int i=0;i<f.size();i++) 
+	//	{ 			
+	camera = sl.plane_base_calibration( f ,chessboard );
+	//	}
+	
+	///-----------------------------------------------------------------------------
+	/// Vizualisacion 3D
+	///-----------------------------------------------------------------------------
+	
+	cout<<"Visualizacion 3D... "<<endl;	
+	viz::Viz3d window("Coordinate Frame");
+	window.setWindowSize(Size(500,500));
+	window.setWindowPosition(Point(150,150));
+	window.setBackgroundColor(); // black by default
+	
+	
+	/// Systema de coordenadas del mundo
+	viz::WLine axisX(Point3f(0.0f,0.0f,0.0f), Point3f(1.0f,0.0f,0.0f), Scalar(255,0,0));	//AZUL
+	axisX.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+	window.showWidget("Orig X", axisX);
+	
+	viz::WLine axisY(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,1.0f,0.0f), Scalar(0,0,255));	//ROJO
+	axisY.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+	window.showWidget("Orig Y", axisY);
+	
+	viz::WLine axisZ(Point3f(0.0f,0.0f,0.0f), Point3f(0.0f,0.0f,1.0f), Scalar(0,255,0));	//VERDE
+	axisZ.setRenderingProperty(viz::LINE_WIDTH, 1.0);
+	window.showWidget("Orig Z", axisZ);
+	
+	/// Add coordinate axes
+	//	cout<<endl;
+	//	show_mat(camera[1]);
+	//	waitKey(0);
+	//	
+	for(int i=1;i<camera.size();i++)
+	{
+		draw_sys_coord(camera[i], window);
+	}
+	//	draw_sys_coord(camera[1], window);
+	//	draw_sys_coord(camera[2], window);
+	//	draw_sys_coord(camera[3], window);
+	//	draw_sys_coord(camera[4], window);
+	
+	/// Reconstruccion
+	vector<Point3f> pc;
+	int c1 = 1, c2 = 2;
+	
+	for(int i=0;i<chess_size.height*chess_size.width;i++) 
+	{
+		
+		Mat p1 = ( Mat_<float>(1,3)<<
+				  f[c1][i].x,
+					  f[c1][i].y,
+						  1.0f			);
+		
+		Mat p2 = ( Mat_<float>(1,3)<<
+				  f[c2][i].x,
+					  f[c2][i].y,
+						  1.0f			);
+		Mat l1 = sl.get_line(camera[0],camera[c1+1], p1);
+		Mat l2 = sl.get_line(camera[0],camera[c2+1], p2);
+		
+		pc.push_back(sl.calc_intersection(l1,l2));
+		
+	}
+	
+	Mat cloud = Mat(pc);
+	Mat real = Mat(chess_cloud);
+	viz::WCloud nube(cloud);
+	viz::WCloud nube_real(real,viz::Color(0,255,0));
+	window.showWidget("cloud",nube);
+	window.showWidget("Puntos reales",nube_real);
+	
+	
+	Mat error;
+	pow(cloud - real,2, error);
+	double err=0;
+	
+	for(int i=0;i<error.rows;i++) 
+	{
+		for(int j=0;j<error.cols;j++) 
+		{
+			err+=error.at<float>(i,j);
+		}
+	}
+	err = err/(error.rows*error.cols);
+	
+	cout<<endl;
+	cout<< "ERROR CUADRATICO: "<< err<<endl;
+	//	sl.get_line(camera[0],camera[1],f[0])
 	
 	window.spin();
 	waitKey(0);

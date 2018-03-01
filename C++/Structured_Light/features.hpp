@@ -1,9 +1,13 @@
+#ifndef FEATURES_H
+#define FEATURES_H
 
-#include "opencv2/opencv.hpp"
-#include "opencv2/highgui/highgui.hpp"
+#include "auxiliares.h"
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 #include <iostream>
-//#include "auxiliares.h"
+#include <ctime>
+
 using namespace std;
 using namespace cv;
 ///-------------------------------------------------------------------------
@@ -521,7 +525,7 @@ vector<descriptor> generate_descriptor(Mat gris, vector<Point2f> features)
 				/// NORMALIZAR PARA MATCHEAR DESPUES -> reduce problemas por iluminacion
 				normalize(d_hist,d_hist,0,1,cv::NORM_MINMAX);
 				
-				d_hist.convertTo(d_hist,CV_8UC1,255.0f);
+//				d_hist.convertTo(d_hist,CV_8UC1,255.0f);
 				temp.HOG.push_back(d_hist.clone());
 				
 //				/// PLOTEO
@@ -548,7 +552,8 @@ vector<descriptor> generate_descriptor(Mat gris, vector<Point2f> features)
 /// Matching Featurse
 
 /// PROBAR CON OTRAS COSAS, PUEDE SER QUE LAS IMAGENES DE POR SI SEAN MUY CHOTAS... REVISAR COMO DESCARTAR FEATURES ...
-vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2)
+//vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2)
+vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2, float relative_thresh = 0.6f, float thresh_ransac=40.0f)
 {
 	Mat diff;
 	float mag;
@@ -556,8 +561,8 @@ vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2)
 	
 	float min_dist, scd_min;
 	int prim_cerc = 0, seg_cerc = 0, pri_d_hist = 0, seg_d_hist = 0, pri_d2_hist = 0, seg_d2_hist = 0;
-	float absolute_thresh = 250;
-	float relative_thresh = 0.6;
+//	float absolute_thresh = 250;
+//	float relative_thresh = 0.6;
 	
 	for(int i=0;i<d.size();i++) 
 	{
@@ -570,25 +575,34 @@ vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2)
 			{
 				for(int l=0;l<d2[j].HOG.size();l++) 
 				{
-					Mat b1 = Mat::zeros(130,1,CV_32F);
-//					b1.at<float>(0) = d[i].pos_feature.x/640.0f;
-//					b1.at<float>(1) = d[i].pos_feature.y/480.0f;
-					b1.at<float>(0) = d[i].pos_feature.x;
-					b1.at<float>(1) = d[i].pos_feature.y;
-					d[i].HOG[k].copyTo(b1(Rect(0,2,1,128)));
-////					show_mat(b1);
-////					
-					Mat b2 = Mat::zeros(130,1,CV_32F);
-//					b2.at<float>(0) = d2[j].pos_feature.x/640.0f;
-//					b2.at<float>(1) = d2[j].pos_feature.y/480.0f;
-					b2.at<float>(0) = d2[j].pos_feature.x;
-					b2.at<float>(1) = d2[j].pos_feature.y;
-					d2[j].HOG[l].copyTo(b2(Rect(0,2,1,128)));
-////					show_mat(b2);
+					////				
+					Mat b1 = Mat::zeros(128,1,CV_32FC1);
+					d[i].HOG[k].copyTo(b1);
+					
+//					Mat b1 = Mat::zeros(130,1,CV_32F);
+////					b1.at<float>(0) = d[i].pos_feature.x/640.0f;
+////					b1.at<float>(1) = d[i].pos_feature.y/480.0f;
+//					b1.at<float>(0) = d[i].pos_feature.x;
+//					b1.at<float>(1) = d[i].pos_feature.y;
+//					d[i].HOG[k].copyTo(b1(Rect(0,2,1,128)));
+					
+					
+					Mat b2 = Mat::zeros(128,1,CV_32FC1);
+					d2[j].HOG[l].copyTo(b2);
+					
+//					Mat b2 = Mat::zeros(130,1,CV_32F);
+////					b2.at<float>(0) = d2[j].pos_feature.x/640.0f;
+////					b2.at<float>(1) = d2[j].pos_feature.y/480.0f;
+//					b2.at<float>(0) = d2[j].pos_feature.x;
+//					b2.at<float>(1) = d2[j].pos_feature.y;
+//					d2[j].HOG[l].copyTo(b2(Rect(0,2,1,128)));
 					
 					diff = b1 - b2;					
-//					diff = d[i].HOG[k] - d2[j].HOG[l];
 					mag = norm(diff);
+//					mag = mag*mag;
+					
+//					pow(diff,2,diff);
+//					mag = sum(diff).val[0];
 					
 					if(mag < min_dist)
 					{
@@ -598,7 +612,8 @@ vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2)
 					}
 					else
 					{
-						if(mag < scd_min && mag!=min_dist)
+//						if(mag < scd_min && mag!=min_dist)
+						if(mag < scd_min)
 						{
 							scd_min = mag;
 						}
@@ -607,11 +622,9 @@ vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2)
 			}
 		}
 		
-//		cout<<"min_dst: "<< min_dist <<endl;
-//		cout<<"scd_min: "<< scd_min <<endl;
-//		cout<<"relative: "<< (min_dist/scd_min) <<endl;
-		if((min_dist/scd_min) < relative_thresh)
+		if(min_dist/scd_min < relative_thresh)
 		{			
+			
 			Mat m(4,1,CV_32F);
 			m.at<float>(0) = d[i].pos_feature.x;
 			m.at<float>(1) = d[i].pos_feature.y;
@@ -619,9 +632,105 @@ vector<Mat> feature_matching(vector<descriptor> d, vector<descriptor> d2)
 			m.at<float>(3) = d2[prim_cerc].pos_feature.y;
 			vm.push_back(m.clone());
 		}
-
+		
 	}
 
+//////	cout<<"ANTES RANSAC: "<< vm.size()<<endl;
+//////	///FALTA VALIDACION DE FEATURES, RANSAC, CORREGIR...
+//////	// Elegir K features random de las matcheadas
+//////	// Calcular homografia entre imagenes
+//////	// contar cuantas features matchadas se corresponden con algun criterio al mapeo de esa homografia
+//////	// repetir proceso L veces, buscando la mayor cantidad de matches
+//////	// Deshacerme de las features que no se mapearon correctamente.
+//////	int cant_f=4;
+//////	vector<Point2f> v1(cant_f), v2(cant_f);
+//////	Mat aux_v1,  aux_v2;
+//////	Mat H, max_H;
+//////	int k, inliers, max_inliers =0;
+//////	int L = 20;
+//////	srand (time(NULL));
+////////	float thresh_ransac = 35.0f;
+//////	for(int l=0; l<L; l++) {
+//////		for(int i=0;i<cant_f;i++) 
+//////		{
+//////			k =rand()%vm.size();
+//////			
+//////			v1[i] = Point2f(vm[k].at<float>(0), vm[k].at<float>(1));
+//////			v2[i] = Point2f(vm[k].at<float>(2), vm[k].at<float>(3));
+//////		}
+//////		
+//////		// v1 = H*v2
+//////		H = estimate_homography(v1, v2);
+//////		
+////////		cout<< "L: "<<l<< " H: "<< norm(diff) <<endl;
+////////		show_mat(H);
+////////		show_mat(H,IMAGEN,0);
+////////		waitKey(0);
+//////		
+//////		inliers = 0;
+//////		for(int i=0;i<vm.size();i++) 
+//////		{
+//////			aux_v1 =(Mat_<float>(3,1)<<
+//////						vm[i].at<float>(0),
+//////						vm[i].at<float>(1), 
+//////						1.0f
+//////					);
+//////			
+//////			aux_v2 =(Mat_<float>(3,1)<<
+//////					 vm[i].at<float>(2),
+//////					 vm[i].at<float>(3), 
+//////					 1.0f
+//////					 );		
+//////			
+////////			Mat aux_v1t;
+////////			transpose(aux_v1,aux_v1);
+////////			diff = aux_v1*H*aux_v2;
+//////			diff = aux_v1 - H*aux_v2;
+//////			
+////////			if(norm(diff)<thresh_ransac)
+//////			if(norm(diff)<thresh_ransac)
+//////			{
+//////				inliers++;
+//////			}
+//////		}
+//////		
+//////		if(inliers>max_inliers)
+//////		{
+//////			max_inliers = inliers;
+//////			max_H = H.clone();
+//////		}
+//////	}
+//////	
+//////	cout<<max_inliers<<endl;
+//////	for(int i=0;i<vm.size();i++) 
+//////	{
+//////		aux_v1 =(Mat_<float>(3,1)<<
+//////				 vm[i].at<float>(0),
+//////				 vm[i].at<float>(1), 
+//////				 1.0f
+//////				 );
+//////		
+//////		aux_v2 =(Mat_<float>(3,1)<<
+//////				 vm[i].at<float>(2),
+//////				 vm[i].at<float>(3), 
+//////				 1.0f
+//////				 );		
+//////		
+////////		transpose(aux_v1,aux_v1);
+////////		diff = aux_v1*max_H*aux_v2;
+//////		
+//////		diff = aux_v1 - max_H*aux_v2;
+//////		
+//////		if(norm(diff)>=thresh_ransac)
+//////		{
+//////			vm[i] = vm[vm.size()-1];
+//////			vm.pop_back();
+//////			
+//////			i--;
+//////		}
+//////	}
+//////	
+//////	cout<<"VM_RANSAC: "<<vm.size()<<endl;
 	return vm;
 	
 }
@@ -678,3 +787,366 @@ void fourier(Mat I)
 	imshow("spectrum magnitude", magI);
 	waitKey();
 }
+
+
+///-----------------------------------------------------------------------------
+/// Correlacion?(NO, muy choto) , CORRESPONDENCIAS DENSAS, trabajo con las imagenes rectificadas? (SI)
+///-----------------------------------------------------------------------------
+/// phase/magnitude OR Intensity(x,y) ??
+
+
+/// SSD - SUM OF SQUARE DIFFERENCES
+int ssd(Mat left, Mat right)
+{
+	Mat diff;
+	
+	diff = left - right;
+	pow(diff, 2, diff);
+	
+	int value = sum(diff).val[0];
+	
+	return value;
+}
+
+/// SAD - SUM OF ABSOLUTE DIFFERENCES
+int sad(Mat left, Mat right)
+{
+	Mat diff;
+	
+	diff = left - right;
+	diff = abs(diff);
+	
+//	int value = sum(diff).val[0];
+	int value = norm(sum(diff));
+	
+//	cout<<sum(diff)<<endl;
+//	show_mat(diff,IMAGEN,0);
+//	waitKey(0);
+//	
+	return value;
+}
+
+int normalize_cross_correlation(Mat left, Mat right)
+{
+	Mat temp_l = left.clone();
+	Mat temp_r = right.clone();
+	Scalar mean, stddev;
+	
+	meanStdDev(left, mean, stddev);
+	temp_l = (left - mean.val[0])/stddev.val[0];
+	
+	meanStdDev(right, mean, stddev);
+	temp_r = (right - mean.val[0])/stddev.val[0];
+
+	int val = 0;
+	for(int i=0;i<left.cols;i++) 
+	{
+		for(int j=0;j<left.rows;j++) 
+		{
+			val += temp_l.at<float>(j,i)*temp_r.at<float>(j,i);
+		}
+	}
+	
+	return -val;
+	
+}
+///
+///
+///
+
+Mat disparity_nr(Mat c1, Mat c2, int half_block_size, int search_limits)
+{
+	Mat temp1 = c1.clone(), temp2 = c2.clone();
+	cvtColor(temp1,temp1,CV_BGR2GRAY);
+	cvtColor(temp2,temp2,CV_BGR2GRAY);
+	
+	temp1.convertTo(temp1,CV_32F, 1.0f/255.0f);
+	temp2.convertTo(temp2,CV_32F, 1.0f/255.0f);
+	
+	Mat disparity = Mat::zeros(temp1.size(),CV_32F);
+	
+	/// VARIABLES PARA SAD O SSD
+	int block_size = 2*half_block_size +1;
+	
+	int img_height = c1.rows, img_width = c1.cols;
+	
+	int offset_left, offset_right;		/// Cantidad de pixeles 
+//	int num_bloques; 										/// Numero de bloques a buscar para cierta ROI
+	
+	int left, right, top, bot, pos;
+	int val_sad, min_sad;
+	
+	Mat roi, search;
+	// Primero Filas
+	for(int j=0;j<img_height;j++) 
+	{
+		
+		top = max(0, j - half_block_size);
+		bot = min(img_height - 1, j + half_block_size);
+		
+		// Despues Columnas
+		for(int i=0;i<img_width;i++) 
+		{
+			// Preparativos
+			left = max(0, i - half_block_size);
+			right = min(img_width - 1, i + half_block_size);
+			
+			offset_left = max(0, i - (half_block_size + search_limits));
+			offset_right  = min(img_width - 1, i + (half_block_size + search_limits));
+			
+			// Region de la Imagen 1 (Left) que se va a buscar en la Imagen 2 (Right)
+			roi = temp1(Rect(left,top, right - left, bot - top));
+			
+///-----------------------------------------------------------------------------
+/// BUSCO LA MEJOR CORRESPONDENCIA ENTRA UNA ZONA DE BUSQUEDA ACOTADA (LOCAL SEARCH)
+/// Metodo de analisis de correspondencia: SAD
+///-----------------------------------------------------------------------------
+			
+			// Itero sobre la segunda imagen, busco bloques, calculo SAD, obtengo mejor coincidencia 
+			min_sad = INT_MAX; pos = 0;
+			for(int k=offset_left; k<offset_right-(right-left); k++) 
+			{
+				search = temp2( Rect(k,top, (right - left), (bot - top)) );
+				
+				//roi - search;
+				val_sad = sad(roi,search);
+//				val_sad = ssd(roi,search);
+//				val_sad = normalize_cross_correlation(roi,search);
+				
+				// guardo el menor valor de SAD y el offset correspondiente
+				if(val_sad < min_sad)
+				{
+					min_sad = val_sad;
+					pos = k;
+				}
+				
+			}
+			
+			disparity.at<float>(j,i) = left - pos;
+			
+		}
+	}
+	
+	return disparity;
+/////-----------------------------------------------------------------------------
+///// PLOT MAPA DISPARIDAD
+/////-----------------------------------------------------------------------------
+//	
+//	double min, max;
+//	Mat d = disparity.clone();
+//	d = abs(d);
+//	
+//	minMaxLoc(d,&min,&max);
+//	d = d/max;
+//
+//	show_mat(d,IMAGEN,0);
+//	show_mat(c1,IMAGEN,1);
+//	show_mat(c2,IMAGEN,2);
+//	
+//	waitKey(0);
+}
+
+///
+///
+///
+
+void disparity_r_call(Mat c1, Mat c2, Point2f l1, Point2f l2, Point2f r1, Point2f r2, int block_division, int search_limits_x , int search_limits_y,  Mat disparity, int iter)
+{
+	
+	int img_w = c1.cols, img_h = c1.rows;
+	int dx = ceil((l2.x-l1.x)/block_division), dy = ceil((l2.y-l1.y)/block_division);
+	
+//	if(dx < 4 || dy < 4 || iter==4){
+	if(iter==5){
+		return; 
+	}
+	
+	++iter;
+	Mat roi, search;
+	
+	int top, bot, left, right;
+	int offs_l, offs_r;
+	int offs_t, offs_b;
+	int value_sad, min_sad = INT_MAX, pos;
+	
+	for(int j=0;j<block_division;j++) 
+	{
+		top = (int)l1.y + j*dy;
+		bot = min(img_h-1, (int)l1.y + (j+1)*dy);
+		
+		for(int i=0;i<block_division;i++) 
+		{
+			left = (int)l1.x + i*dx;
+			right = min(img_w - 1, (int)l1.x + (i+1)*dx);
+			
+			roi = c1(Rect(left,top,right-left,bot-top));
+			
+			offs_l = max(0, (int)r1.x + i*dx - search_limits_x);
+			offs_r = min(img_w-1, (int)r1.x + (i+1)*dx + search_limits_x);
+			offs_t = max(0, (int)r1.y + j*dy - search_limits_y);
+			offs_b = min(img_h-1, (int)r1.y + (j+1)*dy + search_limits_y);
+			
+			min_sad = INT_MAX; 
+			pos = offs_l;
+//			for(int l=offs_t;l<offs_b-(bot-top);l++) {
+				for(int k=offs_l;k<offs_r-(right-left);k++) 
+				{
+					search = c2(Rect(k,top,right-left,bot-top));
+					
+	//				show_mat(roi,IMAGEN,0);
+	//				show_mat(search,IMAGEN,1);
+	//				waitKey(0);
+					
+					value_sad = sad(roi,search);
+	//				value_sad = ssd(roi,search);
+	//				value_sad = normalize_cross_correlation(roi,search);
+					
+					if(value_sad < min_sad)
+					{
+						min_sad = value_sad;
+						pos = k;
+					}
+				}
+//			}
+			for(int k=left;k<right;k++) 
+			{
+				for(int l=top;l<bot;l++) 
+				{
+					disparity.at<float>(l,k) = left - pos;
+				}
+			}
+			
+			/// Display
+//			cout<< left<<" "<<pos<<endl;
+//			if(iter==3){
+//				Mat t1, t2;
+//				t1 = c1.clone();
+//				t2 = c2.clone();
+//				rectangle(t1,Point2f(left,top),Point2f(right,bot), Scalar(255),2);
+//				rectangle(t2,Point2f(offs_l,offs_t),Point2f(offs_r,offs_b), Scalar(255),2);
+//				rectangle(t1,l1,l2, Scalar(255),2);
+//				rectangle(t2,r1,r2, Scalar(255),2);
+//				rectangle(t2,Point2f(pos,top),Point2f(pos + (right-left),bot), Scalar(0),2);
+//				
+//				show_mat(t1,IMAGEN,0);
+//				show_mat(t2,IMAGEN,1);
+//				waitKey(0);
+//			}
+			
+//			disparity_r_call(
+//							 c1, c2, Point2f(left,top), Point2f(right,bot), 
+//							 Point2f(pos,top), Point2f(pos+(right-left), bot),
+//							 block_division, search_limits,  disparity
+//							 );
+			
+			/// LLAMADA RECURSION
+			disparity_r_call(
+							 c1, c2, Point2f(left,top), Point2f(right,bot), 
+							 Point2f(pos,top), Point2f(pos+(right-left), bot),
+							 block_division, search_limits_x,search_limits_y,  disparity, iter
+							 );
+			
+//			boxFilter(disparity,disparity,-1,	Size(3,3));
+//			GaussianBlur(disparity,disparity,Size(3,3),0.3f);
+			
+//			Mat d = disparity.clone();
+//			d.convertTo(d,CV_8UC1);
+//			show_mat(d,IMAGEN,0);
+//			waitKey(0);
+		}
+	}
+}
+
+Mat disparity_r(Mat c1, Mat c2, int block_division, int search_limits_x, int search_limits_y)
+{
+	
+	
+	Mat disparity = Mat::zeros(c1.size(), CV_32F);
+	
+	Mat temp1 = c1.clone();
+	cvtColor(temp1,temp1, CV_BGR2GRAY);
+	temp1.convertTo(temp1,CV_32F,1.0f/255.0f);
+
+	Mat temp2 = c2.clone();
+	cvtColor(temp2,temp2, CV_BGR2GRAY);
+	temp2.convertTo(temp2,CV_32F,1.0f/255.0f);
+	
+	///RECURSIVA
+	disparity_r_call(
+					 temp1,temp2,
+					 Point2f(0,0),Point2f(temp1.cols,temp1.rows),
+					 Point2f(0,0),Point2f(temp2.cols,temp2.rows),
+					 block_division,search_limits_x,search_limits_y, disparity,0
+					 );
+	
+	/// NO RECURSIVA
+	
+//////	int top, bot, left, right;
+//////	int offs_l, offs_r;
+//////	int value_sad, min_sad = INT_MAX, pos;
+//////	
+//////	int img_w = c1.cols, img_h = c1.rows;
+//////	int dx = img_w/block_division, dy = img_h/block_division;
+//////	Mat roi, search;
+//////	
+//////	for(int j=0;j<block_division;j++) 
+//////	{
+//////		top = j*dy;
+//////		bot = min(img_h-1,(j+1)*dy);
+//////		
+//////		for(int i=0;i<block_division;i++) 
+//////		{
+//////			left = i*dx;
+//////			right = min(img_w - 1, (i+1)*dx);
+//////			
+//////			roi = temp1(Rect(left,top,right-left,bot-top));
+//////			
+//////			offs_l = max(0, left - search_limits);
+//////			offs_r = min(img_w-1, right + search_limits);
+//////			
+//////			min_sad = INT_MAX; 
+//////			pos = offs_l;
+//////			for(int k=offs_l;k<offs_r-(right-left);k++) 
+//////			{
+//////				search = temp2(Rect(k,top,right-left,bot-top));
+//////				
+////////				show_mat(roi,IMAGEN,0);
+////////				show_mat(search,IMAGEN,1);
+////////				waitKey(0);
+//////				
+//////				value_sad = sad(roi,search);
+//////				if(value_sad < min_sad)
+//////				{
+//////					min_sad = value_sad;
+//////					pos = k;
+//////				}
+//////			}
+//////			
+//////			for(int k=left;k<right;k++) 
+//////			{
+//////				for(int l=top;l<bot;l++) 
+//////				{
+//////					disparity.at<float>(l,k) = left - pos;
+//////				}
+//////			}
+//////			
+////////			cout<< left<<" "<<pos<<endl;
+////////			/// Display
+////////			Mat t1, t2;
+////////			t1 = temp1.clone();
+////////			t2 = temp2.clone();
+////////			rectangle(t1,Point2f(left,top),Point2f(right,bot), Scalar(0),2);
+////////			rectangle(t2,Point2f(offs_l,top),Point2f(offs_r,bot), Scalar(0),2);
+////////			rectangle(t2,Point2f(pos,top),Point2f(pos + (right-left),bot), Scalar(255),2);
+////////			
+////////			show_mat(t1,IMAGEN,0);
+////////			show_mat(t2,IMAGEN,1);
+////////			waitKey(0);
+//////
+//////		}
+//////	}
+	
+	return disparity;
+}
+
+#endif

@@ -17,7 +17,7 @@ current_source=main.cpp
 path_char=\
 [source]
 path=main.cpp
-cursor=89:64
+cursor=106:22
 open=true
 [other]
 path=readme.txt

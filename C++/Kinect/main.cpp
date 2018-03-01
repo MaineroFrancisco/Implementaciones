@@ -6,6 +6,42 @@ using namespace std;
 using namespace cv;
 
 int main(int argc, char** argv) {
+	
+	///
+////	openni::Status rc = openni::OpenNI::initialize();
+////	if (rc != openni::STATUS_OK)
+////	{
+////		printf("Initialize failed\n%s\n", openni::OpenNI::getExtendedError());
+////	}
+////	
+////	openni::Device device;
+////	rc = device.open(openni::ANY_DEVICE);
+////	if (rc != openni::STATUS_OK)
+////	{
+////		printf("Couldn't open device\n%s\n", openni::OpenNI::getExtendedError());
+////	}
+////	openni::VideoStream depth;
+////	
+////	if (device.getSensorInfo(openni::SENSOR_DEPTH) != NULL)
+////	{
+////		rc = depth.create(device, openni::SENSOR_DEPTH);
+////		if (rc != openni::STATUS_OK)
+////		{
+////			printf("Couldn't create depth stream \n%s\n", openni::OpenNI::getExtendedError());
+////		}
+////	}
+////	VideoCapture cap(CV_CAP_OPENNI2);
+////	Mat frame;
+////	while(1)
+////	{
+////		cap>>frame;
+////		imshow("frame",frame);
+////		waitKey(5);
+////	}
+////	return 0;
+////	
+	///
+	
 	nite::Status niteRc;
 	
 	VideoCapture cap(CAP_OPENNI2);
@@ -60,21 +96,22 @@ int main(int argc, char** argv) {
 	for(;;)
 	{
 		Mat depthMap;
-		Mat bgrImage;
-		Mat cloudMap;
+//		Mat bgrImage;
+//		Mat cloudMap;
 		cap.grab();
 		cap.retrieve( depthMap, CAP_OPENNI_DEPTH_MAP );
-		cap.retrieve( bgrImage, CAP_OPENNI_BGR_IMAGE );
-		cap.retrieve( cloudMap, CAP_OPENNI_POINT_CLOUD_MAP);
-		
-		imshow("test",cloudMap);
-		
-		Size s = cloudMap.size();
-
-		viz::WCloud cloud(cloudMap);
-		window.showWidget("cloud", cloud);
-		
-		window.spinOnce();
+//		cap.retrieve( bgrImage, CAP_OPENNI_BGR_IMAGE );
+//		cap.retrieve( cloudMap, CAP_OPENNI_POINT_CLOUD_MAP);
+//		
+//		imshow("test",cloudMap);
+		imshow("test",depthMap);
+//		
+//		Size s = cloudMap.size();
+//
+//		viz::WCloud cloud(cloudMap);
+//		window.showWidget("cloud", cloud);
+//		
+//		window.spinOnce();
 		
 		/// nite
 		hand.readFrame(&handFrame);
